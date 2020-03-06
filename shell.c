@@ -1,32 +1,42 @@
 #include <sys/types.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <wait.h>
-#include "promptline.h"
+
+#include "shell.h"
 
 char *infile, *outfile, *appfile;
 struct command cmds[MAXCMDS];
 char bkgrnd;
+static char hostname[HOST_NAME_MAX];
+static char username[LOGIN_NAME_MAX];
 
 int main(int argc, char *argv[])
 {
     register int i;
-    char line[1024];      /*  allow large command lines  */
-    char varline[4096];   /*  used for replaces in command line */
+    char line[1024];
+    char varline[4096];
+    char dir[MAX_DIRECTORY_SIZE];
     int ncmds;
-    char prompt[50];      /* shell prompt */
+    char prompt[HOST_NAME_MAX + LOGIN_NAME_MAX + MAX_DIRECTORY_SIZE + 5];
+    int inner_cmd_stat = 0;
 
     /* PLACE SIGNAL CODE HERE */
 
-    sprintf(prompt, "[%s] ", argv[0]);
+    init_home(argv[0]);
+    gethostname(hostname, HOST_NAME_MAX);
+    getlogin_r(username, LOGIN_NAME_MAX);
 
-    while (promptline(prompt, line, sizeof(line)) > 0)
-    {    /* until eof */
-        if ((ncmds = parseline(line, varline)) <= 0)
-            continue;   /* read next line */
+    get_directory_str(dir);
+    sprintf(prompt, "%s@%s:%s$ ", username, hostname, dir);
+    write(1, prompt, strlen(prompt));
+
+    while (prompt_line(line, sizeof(line)) > 0)
+    {
+        if ((ncmds = parse_line(line, varline)) <= 0)
+        {
+            write(1, prompt, strlen(prompt));
+            continue;
+        }
+
         #ifdef DEBUG
         {
            int i, j;     for (i = 0; i < ncmds; i++) {
@@ -41,9 +51,14 @@ int main(int argc, char *argv[])
         for (i = 0; i < ncmds; i++)
         {
             /*  FORK AND EXECUTE  */
-
-            if(!cmds[i].cmdargs[1] && !strcmp(cmds[i].cmdargs[0], "exit"))
+            if((inner_cmd_stat = exec_inner(&cmds[i])) == MAY_EXIT)
                 return EXIT_SUCCESS;
+            else if(inner_cmd_stat != NOT_INNER_COMMAND)
+            {
+                get_directory_str(dir);
+                sprintf(prompt, "%s@%s:%s$ ", username, hostname, dir);
+                continue;
+            }
 
             pid_t pid = fork();
             if(!pid)
@@ -99,8 +114,18 @@ int main(int argc, char *argv[])
             {
                 if(!bkgrnd)
                 {
-                    if(waitpid(pid, NULL, 0) == -1)
+                    int status;
+
+                    if(waitpid(pid, &status, 0) == -1)
                         perror("Couldn't wait for child process termination");
+
+                    if(!WIFEXITED(status))
+                    {
+                        if(WIFSIGNALED(status))
+                            fprintf(stderr, "Process %u stopped due to an unprocessed signal %u\n", pid, WTERMSIG(status));
+                        else
+                            fprintf(stderr, "The process %u failed with a signal %u\n", pid, WEXITSTATUS(status));
+                    }
                 }
                 else
                     printf("Background pid: %ld\n", (long)pid);
@@ -109,7 +134,8 @@ int main(int argc, char *argv[])
                 perror("Couldn't create process");
         }
 
-    }  /* close while */
+        write(1, prompt, strlen(prompt));
+    }
     return EXIT_SUCCESS;
 }
 /* PLACE SIGNAL CODE HERE */

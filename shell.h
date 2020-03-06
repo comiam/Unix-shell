@@ -1,14 +1,12 @@
-#pragma once
+#ifndef UNIX_SHELL_SHELL_H
+#define UNIX_SHELL_SHELL_H
 
-#define MAXARGS 256
-#define MAXCMDS 50
-
-struct command
-{
-    char *cmdargs[MAXARGS];
-    char *replacewords[MAXARGS];
-    char cmdflag;
-};
+#include <unistd.h>
+#include <fcntl.h>
+#include <wait.h>
+#include <limits.h>
+#include "promptline.h"
+#include "cmds.h"
 
 /*  cmdflag's  */
 #define OUTPIP  01
@@ -17,6 +15,4 @@ struct command
 extern struct command cmds[];
 extern char *infile, *outfile, *appfile;
 extern char bkgrnd;
-
-int parseline(char *, char *);
-int promptline(char *, char *, int);
+#endif
