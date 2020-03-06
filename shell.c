@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     gethostname(hostname, HOST_NAME_MAX);
     getlogin_r(username, LOGIN_NAME_MAX);
 
-    get_directory_str(dir);
+    get_dir_prompt(dir);
     sprintf(prompt, "%s@%s:%s$ ", username, hostname, dir);
     write(1, prompt, strlen(prompt));
 
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
                 return EXIT_SUCCESS;
             else if(inner_cmd_stat != NOT_INNER_COMMAND)
             {
-                get_directory_str(dir);
+                get_dir_prompt(dir);
                 sprintf(prompt, "%s@%s:%s$ ", username, hostname, dir);
                 continue;
             }

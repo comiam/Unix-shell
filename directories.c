@@ -65,7 +65,7 @@ int set_directory(char *dirstr)
 }
 
 /* make path string for prompt */
-void get_directory_str(char *dirstr)
+void get_dir_prompt(char *dirstr)
 {
     if(tmp_dir)
     {

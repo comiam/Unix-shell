@@ -17,6 +17,6 @@
 
 void  init_home(char *begin);
 int   set_directory(char* dir);
-void  get_directory_str(char *dirstr);
+void  get_dir_prompt(char *dirstr);
 
 #endif
