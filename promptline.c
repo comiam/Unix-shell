@@ -6,7 +6,7 @@
 
 int prompt_line( char *line, int sizeline)
 {
-    int n = 0;
+    size_t n = 0;
 
     while (1)
     {
