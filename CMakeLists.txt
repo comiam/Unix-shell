@@ -3,4 +3,4 @@ project(unix_shell C)
 
 set(CMAKE_C_STANDARD 99)
 
-add_executable(unix_shell shell.c shell.h promptline.c promptline.h directories.h cmds.c cmds.h directories.c)
+add_executable(unix_shell shell.c shell.h promptline.c promptline.h dirs.h cmds.c cmds.h dirs.c)

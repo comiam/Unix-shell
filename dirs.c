@@ -1,4 +1,4 @@
-#include "directories.h"
+#include "dirs.h"
 
 static char buffer[PATH_MAX];
 static char *tmp_dir = NULL;

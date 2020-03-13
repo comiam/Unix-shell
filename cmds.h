@@ -1,7 +1,7 @@
 #ifndef UNIX_SHELL_CMDS_H
 #define UNIX_SHELL_CMDS_H
 
-#include "directories.h"
+#include "dirs.h"
 
 #define MAXARGS            256
 #define MAXCMDS            50

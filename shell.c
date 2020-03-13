@@ -6,6 +6,7 @@
 
 void closeZombies();
 int getInvite();
+void setSignalMask();
 
 char *infile, *outfile, *appfile;
 struct command cmds[MAXCMDS];
@@ -167,4 +168,13 @@ int getInvite()
 void closeZombies()
 {
     waitpid(-1, NULL, WNOHANG);
+}
+
+/* ALLOW SHELL TO GET SIGCHLD */
+void setSignalMask()
+{
+    sigset_t mask;
+
+    sigfillset(&mask);
+    sigdelset(&mask, SIGCHLD);
 }

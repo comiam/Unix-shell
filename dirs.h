@@ -1,5 +1,5 @@
-#ifndef UNIX_SHELL_DIRECTORIES_H
-#define UNIX_SHELL_DIRECTORIES_H
+#ifndef UNIX_SHELL_DIRS_H
+#define UNIX_SHELL_DIRS_H
 
 #include <string.h>
 #include <unistd.h>
