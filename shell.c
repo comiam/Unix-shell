@@ -1,12 +1,11 @@
-#define _XOPEN_SOURCE 500
 #include <stdlib.h>
 #include <termio.h>
 #include <signal.h>
 #include "shell.h"
 
-void closeZombies();
-int getInvite();
-void setSignalMask();
+int get_invite();
+void set_signal_handler();
+void set_bkgr_sig_handl();
 
 char *infile, *outfile, *appfile;
 struct command cmds[MAXCMDS];
@@ -29,8 +28,7 @@ int main(int argc, char *argv[])
     tcgetattr(0, &term_strct);
 
     /* PLACE sigset CODE HERE */
-    sigset(SIGINT, SIG_IGN);
-    sigset(SIGCHLD, closeZombies);
+    set_signal_handler();
 
     /* INIT HOME LOCATION IN SHELL */
     init_home(argv[0]);
@@ -42,7 +40,7 @@ int main(int argc, char *argv[])
     get_dir_prompt(dir);
     sprintf(prompt, "%s@%s:%s$ ", username, hostname, dir);
 
-    while (getInvite() && prompt_line(line, sizeof(line)) > 0)
+    while (get_invite() && prompt_line(line, sizeof(line)) > 0)
     {
         if ((ncmds = parse_line(line, varline)) <= 0)
             continue;
@@ -75,11 +73,7 @@ int main(int argc, char *argv[])
             if(!pid)
             {
                 if(bkgrnd)
-                {
-                    sigset(SIGINT, SIG_IGN);
-                    sigset(SIGQUIT, SIG_IGN);
-                    sigset(SIGHUP, SIG_IGN);
-                }
+                    set_bkgr_sig_handl();
                 if(!i && infile)
                 {
                     int input = open(infile, O_RDONLY);
@@ -156,7 +150,7 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-int getInvite()
+int get_invite()
 {
     write(STDOUT_FILENO, prompt, strlen(prompt));
     fflush(stdout);
@@ -165,16 +159,33 @@ int getInvite()
 }
 
 /* PLACE sigset CODE HERE */
-void closeZombies()
+void close_zombies(int signum)
 {
     waitpid(-1, NULL, WNOHANG);
 }
 
 /* ALLOW SHELL TO GET SIGCHLD */
-void setSignalMask()
+void set_signal_handler()
 {
     sigset_t mask;
 
     sigfillset(&mask);
     sigdelset(&mask, SIGCHLD);
+
+    struct sigaction act0 = {SIG_IGN,0};
+    sigaction(SIGINT, &act0, NULL);
+    sigaction(SIGTSTP, &act0, NULL);
+
+    struct sigaction act1 = {close_zombies,0};
+    sigaction(SIGCHLD, &act1, NULL);
+}
+
+/* USED FOR BACKGROUND PROCESSES */
+void set_bkgr_sig_handl()
+{
+    struct sigaction act0 = {SIG_IGN,0};
+
+    sigaction(SIGINT, &act0, NULL);
+    sigaction(SIGQUIT, &act0, NULL);
+    sigaction(SIGHUP, &act0, NULL);
 }
