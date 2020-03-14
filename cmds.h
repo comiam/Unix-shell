@@ -16,5 +16,6 @@ struct command
     char cmdflag;
 };
 
+int wait_process(pid_t pid);
 int exec_inner(struct command *cmd);
 #endif

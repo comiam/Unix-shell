@@ -15,4 +15,5 @@
 extern struct command cmds[];
 extern char *infile, *outfile, *appfile;
 extern char bkgrnd;
+
 #endif

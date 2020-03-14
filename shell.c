@@ -124,22 +124,7 @@ int main(int argc, char *argv[])
             else if(pid != -1)
             {
                 if(!bkgrnd)
-                {
-                    int status;
-
-                    if(waitpid(pid, &status, 0) == -1)
-                        perror("Couldn't wait for child process termination\n");
-
-                    if(!WIFEXITED(status))
-                    {
-                        if(WIFSIGNALED(status))
-                            fprintf(stderr, "Process %u stopped due to an unprocessed sigset %u\n", pid, WTERMSIG(status));
-                        else
-                            fprintf(stderr, "The process %u failed with a sigset %u\n", pid, WEXITSTATUS(status));
-
-                        tcsetattr(0, TCSANOW, &term_strct);
-                    }
-                }
+                    wait_process(pid);
                 else
                     printf("Background pid: %ld\n", (long)pid);
             }
@@ -162,6 +147,12 @@ int get_invite()
 void close_zombies(int signum)
 {
     waitpid(-1, NULL, WNOHANG);
+}
+
+/* USED FOR CTRL-Z COMMAND(PROCESS GO TO BACKGROUND)*/
+void goto_back(int signum)
+{
+    
 }
 
 /* ALLOW SHELL TO GET SIGCHLD */
@@ -188,4 +179,23 @@ void set_bkgr_sig_handl()
     sigaction(SIGINT, &act0, NULL);
     sigaction(SIGQUIT, &act0, NULL);
     sigaction(SIGHUP, &act0, NULL);
+}
+
+int wait_process(pid_t pid)
+{
+    int status;
+
+    if(waitpid(pid, &status, 0) == -1)
+        perror("Couldn't wait for child process termination\n");
+
+    if(!WIFEXITED(status))
+    {
+        if(WIFSIGNALED(status))
+            fprintf(stderr, "Process %u stopped due to an unprocessed signal %u\n", pid, WTERMSIG(status));
+        else
+            fprintf(stderr, "The process %u failed with a signal %u\n", pid, WEXITSTATUS(status));
+
+        tcsetattr(0, TCSANOW, &term_strct);
+    }
+    return status;
 }
