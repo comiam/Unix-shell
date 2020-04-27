@@ -8,7 +8,7 @@ static char *concat_str(const char *s0, const char *s1);
 static int  is_dir(const char *path);
 static void replace_first(char *str, char *word1, char *word2);
 static void clear_tmp();
-static void cd(char *path);
+static void cd(const char *path);
 static void go_to_parent();
 
 int set_directory(const char *dirstr)
@@ -113,7 +113,7 @@ void get_dir_prompt(char *dirstr)
 }
 
 /* final cd operation */
-static void cd(char *path)
+static void cd(const char *path)
 {
     if(tmp_dir)
         clear_tmp();

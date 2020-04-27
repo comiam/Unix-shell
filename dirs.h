@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <limits.h>
 #include <sys/stat.h>
 
 #define MAX_DIRECTORY_SIZE 256

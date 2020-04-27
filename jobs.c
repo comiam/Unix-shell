@@ -4,6 +4,17 @@
 
 job *head_job_list = NULL;
 
+/* Find the job with the indicated pgid. */
+job *find_job_pid(pid_t pgid)
+{
+    job *j;
+
+    for (j = get_job_list_head(); j; j = j->next)
+        if (j->pgid == pgid)
+            return j;
+    return NULL;
+}
+
 /* Get head of job list. */
 job *get_job_list_head()
 {
@@ -272,7 +283,6 @@ void do_job_notification(int show_all)
     /* Update status information for child processes.  */
     update_job_status();
 
-
     for (j = get_job_list_head(); j; j = j->next)
     {
         /* Dont show jobs */
@@ -387,5 +397,82 @@ void fill_job(job* jobs, int ncmds)
 /* used only for SIGCHLD*/
 void notify_child(int signum)
 {
-    do_job_notification(0);
+    if(invite_mode)
+        do_job_notification(0);
+}
+
+/* Mark a stopped job J as being running again.  */
+
+void mark_job_as_running(job *j)
+{
+    process *p;
+
+    for (p = j->first_process; p; p = p->next)
+        p->stopped = 0;
+    j->notified = 0;
+}
+
+/* Put job j in the foreground.  If cont is nonzero,
+   restore the saved terminal modes and send the process group a
+   SIGCONT signal to wake it up before we block.  */
+void put_job_in_foreground(job *j, int cont)
+{
+    /* Put the job into the foreground.  */
+    tcsetpgrp(shell_terminal, j->pgid);
+
+    /* Send the job a continue signal, if necessary.  */
+    if (cont)
+    {
+        tcsetattr(shell_terminal, TCSADRAIN, &j->tmodes);
+        if (kill(-j->pgid, SIGCONT) < 0)
+            perror("kill(SIGCONT)");
+    }
+
+    /* Wait for it to report.  */
+    wait_for_job(j);
+
+    /* Put the shell back in the foreground.  */
+    tcsetpgrp(shell_terminal, shell_pgid);
+
+    /* Restore the shell's terminal modes.  */
+    tcgetattr(shell_terminal, &j->tmodes);
+    tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+}
+
+/* Put a job in the background.  If the cont argument is true, send
+   the process group a SIGCONT signal to wake it up.  */
+void put_job_in_background(job *j, int cont)
+{
+    /* Send the job a continue signal, if necessary.  */
+    if (cont)
+        if (kill(-j->pgid, SIGCONT) < 0)
+            perror("kill (SIGCONT)");
+}
+
+/* Check for processes that have status information available,
+   blocking until all processes in the given job have reported.  */
+void wait_for_job(job *j)
+{
+    int status;
+    pid_t pid;
+
+    if(!get_job_list_head() || job_list_is_inner())
+        return;
+
+    do
+        pid = waitpid(WAIT_ANY, &status, WUNTRACED);
+    while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
+}
+
+/* Continue the job J.  */
+void continue_job(job *j, int foreground)
+{
+    mark_job_as_running(j);
+    if (foreground)
+    {
+        put_job_in_foreground(j, 1);
+        current_job = j;
+    }
+    else
+        put_job_in_background(j, 1);
 }

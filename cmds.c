@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include "cmds.h"
 #include "jobs.h"
+#include "shell.h"
 
 int command_is_inner(const char* name)
 {
-    return !strcmp(name, "cd") || !strcmp(name, "exit") || !strcmp(name, "jobs") /*|| !strcmp(name, "bg") || !strcmp(name, "fg") */;
+    return !strcmp(name, "cd") || !strcmp(name, "exit") || !strcmp(name, "jobs") || !strcmp(name, "bg") || !strcmp(name, "fg");
 }
 
 int exec_inner(const char *name, const char *argv[])
@@ -54,7 +55,7 @@ int exec_inner(const char *name, const char *argv[])
         do_job_notification(1);
 
         return EXEC_SUCCESS;
-    }else /*if(!strcmp(name, "bg"))
+    }else if(!strcmp(name, "bg"))
     {
         int size = 0;
         int i = 1;
@@ -63,25 +64,32 @@ int exec_inner(const char *name, const char *argv[])
 
         if(size > 1)
         {
-            fprintf(stderr_file, "%s: Too many args!\n", argv[1]);
-            fflush(stderr_file);
+            fprintf(stderr, "%s: Too many args!\n", argv[1]);
+            fflush(stderr);
             return EXEC_FAILED;
         }
 
-        if(!(pid_t)strtol(argv[1], NULL, 10) || errno == ERANGE)
+        pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
+
+        if(!pid || errno == ERANGE)
         {
-            fprintf(stderr_file, "Invalid pid!");
-            fflush(stderr_file);
+            fprintf(stderr, "Invalid pid!\n");
+            fflush(stderr);
             return EXEC_FAILED;
         }
 
-        if(kill((pid_t)strtol(argv[1], NULL, 10), SIGCONT))
-            return EXEC_SUCCESS;
-        else
+        job* jobs = find_job_pid(-pid);
+        if(!jobs)
         {
-            perror("Cant execute bg!");
+            fprintf(stderr, "%d - no such job!\n", pid);
+            fflush(stderr);
             return EXEC_FAILED;
         }
+
+        remove_job(current_job->pgid);
+        continue_job(jobs, 0);
+
+        return EXEC_SUCCESS;
     }else if(!strcmp(name, "fg"))
     {
         int size = 0;
@@ -91,24 +99,32 @@ int exec_inner(const char *name, const char *argv[])
 
         if(size > 1)
         {
-            fprintf(stderr_file, "%s: Too many args!\n", argv[1]);
-            fflush(stderr_file);
+            fprintf(stderr, "%s: Too many args!\n", argv[1]);
+            fflush(stderr);
             return EXEC_FAILED;
         }
 
-        if(!(pid_t)strtol(argv[1], NULL, 10) || errno == ERANGE)
+        pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
+
+        if(!pid || errno == ERANGE)
         {
-            fprintf(stderr_file, "Invalid pid!");
-            fflush(stderr_file);
+            fprintf(stderr, "Invalid pid!\n");
+            fflush(stderr);
             return EXEC_FAILED;
         }
 
-        kill((pid_t)strtol(argv[1], NULL, 10), SIGUSR1);
+        job* jobs = find_job_pid(-pid);
+        if(!jobs)
+        {
+            fprintf(stderr, "%d - no such job!\n", pid);
+            fflush(stderr);
+            return EXEC_FAILED;
+        }
 
-        if(wait_process((pid_t)strtol(argv[1], NULL, 10)) == -1)
-            perror("Cant execute fg!");
+        remove_job(current_job->pgid);
+        continue_job(jobs, 1);
 
         return EXEC_SUCCESS;
-    }else*/
+    }else
         return NOT_INNER_COMMAND;
 }

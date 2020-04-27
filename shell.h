@@ -18,4 +18,8 @@ job* current_job;
 char bkgrnd;
 int invite_mode;
 
+pid_t shell_pgid;
+struct termios shell_tmodes;
+int shell_terminal;
+
 #endif

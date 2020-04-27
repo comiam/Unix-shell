@@ -4,13 +4,6 @@ void init_shell(char *argv[]);
 int get_invite();
 void launch_job(int foreground);
 void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local, int errfile_local, int foreground);
-void put_job_in_foreground(job *j, int cont);
-void put_job_in_background(job *j, int cont);
-void wait_for_job(job *j);
-
-pid_t shell_pgid;
-struct termios shell_tmodes;
-int shell_terminal;
 
 char hostname[HOST_NAME_MAX];
 char username[LOGIN_NAME_MAX];
@@ -45,11 +38,20 @@ int main(int argc, char *argv[])
 
         launch_job(!bkgrnd);
         if(!bkgrnd && job_is_completed(current_job))
+        {
+            do_job_notification(0);
             remove_job(current_job->pgid);
+        }
         else if(!bkgrnd && job_is_stopped(current_job))
         {
             current_job->notified = 1;
             format_job_info(current_job, "stopped");
+            fprintf(stdout, "\n");
+            fflush(stdout);
+        }else if(bkgrnd)
+        {
+            current_job->notified = 1;
+            format_job_info(current_job, NULL);
             fprintf(stdout, "\n");
             fflush(stdout);
         }
@@ -75,7 +77,7 @@ void init_shell(char *argv[])
         //while (tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
         //    kill(-shell_pgid, SIGTTIN);
 
-        /* Ignore interactive and job-control signals.  */
+        /* Ignore interactive and job-control signals. */
         set_signal_handler(SIGINT, SIG_IGN);
         set_signal_handler(SIGQUIT, SIG_IGN);
         set_signal_handler(SIGTSTP, SIG_IGN);
@@ -83,7 +85,7 @@ void init_shell(char *argv[])
         set_signal_handler(SIGTTOU, SIG_IGN);
         set_signal_handler(SIGCHLD, notify_child);
 
-        /* Put ourselves in our own process group.  */
+        /* Put ourselves in our own process group. */
         shell_pgid = getpid();
         /*if (setpgid(shell_pgid, shell_pgid) < 0)
         {
@@ -229,61 +231,4 @@ void launch_job(int foreground)
         else
             put_job_in_background(current_job, 0);
     }
-}
-
-/* Put job j in the foreground.  If cont is nonzero,
-   restore the saved terminal modes and send the process group a
-   SIGCONT signal to wake it up before we block.  */
-void put_job_in_foreground(job *j, int cont)
-{
-    /* Put the job into the foreground.  */
-    tcsetpgrp(shell_terminal, j->pgid);
-
-    /* Send the job a continue signal, if necessary.  */
-    if (cont)
-    {
-        tcsetattr(shell_terminal, TCSADRAIN, &j->tmodes);
-        if (kill(-j->pgid, SIGCONT) < 0)
-            perror("kill (SIGCONT)");
-    }
-
-    /* Wait for it to report.  */
-    wait_for_job(j);
-
-    /* Put the shell back in the foreground.  */
-    tcsetpgrp(shell_terminal, shell_pgid);
-
-    /* Restore the shell's terminal modes.  */
-    tcgetattr(shell_terminal, &j->tmodes);
-    tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
-}
-
-/* Put a job in the background.  If the cont argument is true, send
-   the process group a SIGCONT signal to wake it up.  */
-void put_job_in_background(job *j, int cont)
-{
-    /* Send the job a continue signal, if necessary.  */
-    if (cont)
-        if (kill(-j->pgid, SIGCONT) < 0)
-            perror("kill (SIGCONT)");
-
-    current_job->notified = 1;
-    format_job_info(j, NULL);
-    fprintf(stdout, "\n");
-    fflush(stdout);
-}
-
-/* Check for processes that have status information available,
-   blocking until all processes in the given job have reported.  */
-void wait_for_job(job *j)
-{
-    int status;
-    pid_t pid;
-
-    if(!get_job_list_head() || job_list_is_inner())
-        return;
-
-    do
-        pid = waitpid(WAIT_ANY, &status, WUNTRACED);
-    while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
 }
