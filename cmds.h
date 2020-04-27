@@ -10,12 +10,12 @@
 #define EXEC_FAILED       -358
 #define NOT_INNER_COMMAND -359
 
-struct command
+typedef struct command_str
 {
     char *cmdargs[MAXARGS];
     char cmdflag;
-};
+} command;
 
-int wait_process(pid_t pid);
-int exec_inner(struct command *cmd);
+int exec_inner(const char *name, const char *argv[]);
+int command_is_inner(const char* name);
 #endif

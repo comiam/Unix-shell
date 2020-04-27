@@ -16,7 +16,7 @@
 #define DIR_IS_FILE       -260
 
 void  init_home(char *begin);
-int   set_directory(char* dir);
+int   set_directory(const char* dir);
 void  get_dir_prompt(char *dirstr);
 
 #endif

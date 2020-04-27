@@ -144,6 +144,31 @@ int parse_line(char *line, char *varline)
                     cmds[ncmds].cmdargs[nargs] = (char *) NULL;
                 }
                 break;
+            case '%':
+                *s++ = '\0';
+                envword = s;
+                while(!isspace(*s) && *s != '\0') ++s;
+
+                s = strpbrk(s, delim);
+                if (isspace(*s))
+                    *s++ = '\0';
+
+                cmds[ncmds].cmdargs[nargs++] = varline;
+                cmds[ncmds].cmdargs[nargs] = (char *) NULL;
+
+                char str[10];
+                int a = atoi(envword);
+                if (!find_job_jid(a))
+                {
+                    fprintf(stderr, "%%%s: no such job!\n", envword);
+                    return (-1);
+                }
+                sprintf(str, "%d", -find_job_jid(a)->pgid);
+                int index = 0;
+                while(!isspace(str[index]) && str[index] != '\0')
+                    *varline++ = str[index++];
+                *varline++ = '\0';
+                break;
             default:
                 if (nargs == 0)
                     rval = ncmds + 1;

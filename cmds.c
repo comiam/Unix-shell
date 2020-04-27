@@ -1,116 +1,114 @@
 #include <stdio.h>
-#include <signal.h>
 #include "cmds.h"
+#include "jobs.h"
 
-int exec_inner(struct command *cmd)
+int command_is_inner(const char* name)
 {
-    if(!cmd)
+    return !strcmp(name, "cd") || !strcmp(name, "exit") || !strcmp(name, "jobs") /*|| !strcmp(name, "bg") || !strcmp(name, "fg") */;
+}
+
+int exec_inner(const char *name, const char *argv[])
+{
+    if(!name || !argv)
         return EXEC_FAILED;
 
-    if(!strcmp((*cmd).cmdargs[0], "exit"))
+    if(!strcmp(name, "exit"))
         return MAY_EXIT;
-    else if(!strcmp((*cmd).cmdargs[0], "cd"))
+    else if(!strcmp(name, "cd"))
     {
         int size = 0;
         int i = 1;
-        while((*cmd).cmdargs[i++])
+        while(argv[i++])
             size++;
 
         if(size > 1)
         {
-            fprintf(stderr, "%s: Too many args!\n", (*cmd).cmdargs[1]);
+            fprintf(stderr, "%s: Too many args!\n", argv[1]);
             fflush(stderr);
             return EXEC_FAILED;
         }
 
-        int status = set_directory((*cmd).cmdargs[1]);
+        int status = set_directory(argv[1]);
 
         switch(status)
         {
             case DIR_EXIST:
                 return EXEC_SUCCESS;
             case DIR_NOT_EXIST:
-                fprintf(stderr, "%s: No such file or directory!\n", (*cmd).cmdargs[1]);
+                fprintf(stderr, "%s: No such file or directory!\n", argv[1]);
                 fflush(stderr);
                 return EXEC_FAILED;
             case CANT_OPEN_DIR:
-                fprintf(stderr, "%s: Can't open dir!\n", (*cmd).cmdargs[1]);
+                fprintf(stderr, "%s: Can't open dir!\n", argv[1]);
                 fflush(stderr);
                 return EXEC_FAILED;
             case DIR_IS_FILE:
-                fprintf(stderr, "%s: Not a directory!\n", (*cmd).cmdargs[1]);
+                fprintf(stderr, "%s: Not a directory!\n", argv[1]);
                 fflush(stderr);
                 return EXEC_FAILED;
             default:
                 return EXEC_FAILED;
         }
-    }else if(!strcmp((*cmd).cmdargs[0], "bg"))
+    }else if(!strcmp(name, "jobs"))
+    {
+        do_job_notification(1);
+
+        return EXEC_SUCCESS;
+    }else /*if(!strcmp(name, "bg"))
     {
         int size = 0;
         int i = 1;
-        while((*cmd).cmdargs[i++])
+        while(argv[i++])
             size++;
 
         if(size > 1)
         {
-            fprintf(stderr, "%s: Too many args!\n", (*cmd).cmdargs[1]);
-            fflush(stderr);
+            fprintf(stderr_file, "%s: Too many args!\n", argv[1]);
+            fflush(stderr_file);
             return EXEC_FAILED;
         }
-        int res;
-        if(!(res = kill((pid_t)atoi((*cmd).cmdargs[1]), SIGCONT)))
+
+        if(!(pid_t)strtol(argv[1], NULL, 10) || errno == ERANGE)
+        {
+            fprintf(stderr_file, "Invalid pid!");
+            fflush(stderr_file);
+            return EXEC_FAILED;
+        }
+
+        if(kill((pid_t)strtol(argv[1], NULL, 10), SIGCONT))
             return EXEC_SUCCESS;
         else
         {
-            switch(errno)
-            {
-                case ESRCH:
-                    fprintf(stderr, "No such process!");
-                    fflush(stderr);
-                    break;
-                case EPERM:
-                    fprintf(stderr, "Permission denied!");
-                    fflush(stderr);
-                    break;
-                default:
-                    fprintf(stderr, "%d error!", res);
-                    fflush(stderr);
-                    break;
-            }
+            perror("Cant execute bg!");
             return EXEC_FAILED;
         }
-    }else if(!strcmp((*cmd).cmdargs[0], "fg"))
+    }else if(!strcmp(name, "fg"))
     {
         int size = 0;
         int i = 1;
-        while((*cmd).cmdargs[i++])
+        while(argv[i++])
             size++;
 
         if(size > 1)
         {
-            fprintf(stderr, "%s: Too many args!\n", (*cmd).cmdargs[1]);
-            fflush(stderr);
+            fprintf(stderr_file, "%s: Too many args!\n", argv[1]);
+            fflush(stderr_file);
             return EXEC_FAILED;
         }
 
-        if(wait_process((pid_t)atoi((*cmd).cmdargs[1])) == -1)
-            switch(errno)
-            {
-                case ECHILD:
-                    fprintf(stderr, "This process not exist!");
-                    fflush(stderr);
-                    break;
-                case EPERM:
-                    fprintf(stderr, "Permission denied!");
-                    fflush(stderr);
-                    break;
-                default:
-                    fprintf(stderr, "%d error!", errno);
-                    fflush(stderr);
-                    break;
-            }
+        if(!(pid_t)strtol(argv[1], NULL, 10) || errno == ERANGE)
+        {
+            fprintf(stderr_file, "Invalid pid!");
+            fflush(stderr_file);
+            return EXEC_FAILED;
+        }
+
+        kill((pid_t)strtol(argv[1], NULL, 10), SIGUSR1);
+
+        if(wait_process((pid_t)strtol(argv[1], NULL, 10)) == -1)
+            perror("Cant execute fg!");
 
         return EXEC_SUCCESS;
-    }else
+    }else*/
         return NOT_INNER_COMMAND;
 }

@@ -11,7 +11,7 @@ static void clear_tmp();
 static void cd(char *path);
 static void go_to_parent();
 
-int set_directory(char *dirstr)
+int set_directory(const char *dirstr)
 {
     if (!dirstr || !strlen(dirstr))
     {
