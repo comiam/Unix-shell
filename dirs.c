@@ -1,38 +1,61 @@
 #include "dirs.h"
 
-static char buffer[PATH_MAX];
-static char *tmp_dir = NULL;
-static char *home_dir = NULL;
+static char buffer[PATH_MAX]; /* Buffer for operations in dirs.c */
+static char *tmp_dir = NULL;  /* Saved string of current directory */
+static char *home_dir = NULL; /* Initial home directory for shell */
 
+/* Concat strings. */
 static char *concat_str(const char *s0, const char *s1);
+
+/* Check path is valid directory. */
 static int  is_dir(const char *path);
+
+/* Replace first word1 in str to word2. */
 static void replace_first(char *str, char *word1, char *word2);
+
+/* Clear tmp_dir. */
 static void clear_tmp();
+
+/* Final cd operation. */
 static void cd(const char *path);
+
+/* Return to home directory. */
 static void go_to_parent();
 
+/* Set current working directory to path, with validation of dir. */
 int set_directory(const char *dirstr)
 {
     if (!dirstr || !strlen(dirstr))
     {
+        /* If arguments is invalid. */
         cd(home_dir);
         return DIR_EXIST;
     }
 
+    /* Go back to parent directory. */
     if(!strcmp(dirstr, ".."))
     {
         go_to_parent();
         return DIR_EXIST;
     }
 
+    /* Try to open current directory. */
     DIR *dir = opendir(dirstr);
     if (dir)
     {
+        /* If success. */
         closedir(dir);
         cd(dirstr);
         return DIR_EXIST;
-    } else if (errno == ENOENT)
+    } else
+        /* No such file or directory. */
+    if (errno == ENOENT)
     {
+        /* Try to find this directory in current working directory.
+           For example:
+            maxim@pc:~/unix_shell/$ cd folder1
+            maxim@pc:~/unix_shell/folder1$
+            */
         getcwd(buffer, sizeof(buffer));
         char *tmp = concat_str(buffer, "/");
         char *newdir = concat_str(tmp, dirstr);
@@ -41,41 +64,51 @@ int set_directory(const char *dirstr)
         dir = opendir(newdir);
         if (dir)
         {
+            /* If success. */
             cd(dirstr);
             return DIR_EXIST;
         } else
         {
+            /* If we can't open directory. */
             if (errno == ENOENT)
                 return DIR_NOT_EXIST;
             else
             {
+                /* Check directory is file. Not folder. */
                 if(!is_dir(dirstr))
                     return DIR_IS_FILE;
                 else
+                    /* We don't have permissions to open the folder, or this is an unexpected error. */
                     return CANT_OPEN_DIR;
             }
         }
     } else
     {
+        /* Check directory is file. Not folder. */
         if(!is_dir(dirstr))
             return DIR_IS_FILE;
         else
+            /* We don't have permissions to open the folder, or this is an unexpected error. */
             return CANT_OPEN_DIR;
     }
 }
 
-/* make path string for prompt */
+/* Get directory string for invite string. */
 void get_dir_prompt(char *dirstr)
 {
+    /* Check if we already have a string made. */
     if(tmp_dir)
     {
         strcpy(dirstr, tmp_dir);
         return;
     }
+    /* Make string again. Now we get current working directory. */
     getcwd(buffer, sizeof(buffer));
 
+    /* Format directory string */
     char *newdir = malloc(sizeof(char) * strlen(buffer));
     strcpy(newdir, buffer);
+    /* Replace our home directory to ~ */
     replace_first(newdir, home_dir, "~");
 
     if (!strcmp(newdir, home_dir))
@@ -86,6 +119,7 @@ void get_dir_prompt(char *dirstr)
 
     char *newdir_copy = newdir;
 
+    /* If size of directory string is greater than needed. */
     if (strlen(newdir) > strlen(dirstr))
         while (newdir && strlen(newdir) + 3 > MAX_DIRECTORY_SIZE)
             newdir = strpbrk(newdir, "/\\");
@@ -99,6 +133,7 @@ void get_dir_prompt(char *dirstr)
         dirstr[3] = '\0';
     } else
     {
+        /* If we cropped directory string. */
         if (!(newdir - newdir_copy))
             strcpy(dirstr, newdir);
         else
@@ -112,20 +147,24 @@ void get_dir_prompt(char *dirstr)
     tmp_dir = newdir;
 }
 
-/* final cd operation */
+/* Final cd operation. */
 static void cd(const char *path)
 {
+    /* We clear tmp_dir because of now we move to new directory. */
     if(tmp_dir)
         clear_tmp();
     chdir(path);
 }
 
+/* Init home directory of shell. */
 void init_home(char *begin)
 {
+    /* Set home to $HOME environment variable. */
     if ((home_dir = getenv("HOME")))
         cd(home_dir);
     else
     {
+        /* Set working directory to directory, where shell was executed. */
         char *newdir = malloc(sizeof(char) * strlen(begin));
         strcpy(newdir, begin);
         for (size_t i = strlen(newdir) - 1; i >= 0; --i)
@@ -141,6 +180,7 @@ void init_home(char *begin)
     }
 }
 
+/* Concat strings. */
 static char *concat_str(const char *s0, const char *s1)
 {
     char *str = (char *) malloc(sizeof(char) * (1 + strlen(s0) + strlen(s1)));
@@ -149,6 +189,7 @@ static char *concat_str(const char *s0, const char *s1)
     return str;
 }
 
+/* Check path is valid directory. */
 static int is_dir(const char *path)
 {
     struct stat statbuf;
@@ -157,22 +198,25 @@ static int is_dir(const char *path)
     return S_ISDIR(statbuf.st_mode);
 }
 
+/* Return to home directory. */
 static void go_to_parent()
 {
+    /* Check, if we are in root directory. */
     getcwd(buffer, sizeof(buffer));
-
     if(!strcmp(buffer, "/"))
         return;
 
     for (size_t i = strlen(buffer) - 1; i >= 0; --i)
         if ((buffer[i] == '/' || buffer[i] == '\\'))
         {
+            /* Move to root, in we haven't any parents. */
             if (i == 0)
             {
                 cd("/");
                 return;
             }
 
+            /* Cut string on position, where ends parent directory path. */
             char del = buffer[i];
             buffer[i] = '\0';
             cd(buffer);
@@ -181,13 +225,14 @@ static void go_to_parent()
         }
 }
 
+/* Clear tmp_dir. */
 static void clear_tmp()
 {
     free(tmp_dir);
     tmp_dir = NULL;
 }
 
-/* replace word1 to word2 */
+/* Replace first word1 in str to word2. */
 static void replace_first(char *str, char *word1, char *word2)
 {
     char tempString[1024 * 5];

@@ -3,22 +3,27 @@
 #include "jobs.h"
 #include "shell.h"
 
+/* Check command name is inner realized command. */
 int command_is_inner(const char* name)
 {
     return !strcmp(name, "cd") || !strcmp(name, "exit") || !strcmp(name, "jobs") || !strcmp(name, "bg") || !strcmp(name, "fg");
 }
 
+/* Exec inner command. Notify, this commands not executed in forked process. */
 int exec_inner(const char *name, const char *argv[])
 {
     if(!name || !argv)
         return EXEC_FAILED;
 
     if(!strcmp(name, "exit"))
+        /* Return code for exit from shell. */
         return MAY_EXIT;
     else if(!strcmp(name, "cd"))
     {
         int size = 0;
         int i = 1;
+
+        /* Check args. */
         while(argv[i++])
             size++;
 
@@ -31,6 +36,7 @@ int exec_inner(const char *name, const char *argv[])
 
         int status = set_directory(argv[1]);
 
+        /* Check status of last command. */
         switch(status)
         {
             case DIR_EXIST:
@@ -52,6 +58,7 @@ int exec_inner(const char *name, const char *argv[])
         }
     }else if(!strcmp(name, "jobs"))
     {
+        /* Show all executed jobs, but not terminated, jobs. */
         do_job_notification(1);
 
         return EXEC_SUCCESS;
@@ -59,6 +66,8 @@ int exec_inner(const char *name, const char *argv[])
     {
         int size = 0;
         int i = 1;
+
+        /* Check args. */
         while(argv[i++])
             size++;
 
@@ -71,6 +80,7 @@ int exec_inner(const char *name, const char *argv[])
 
         pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
 
+        /* Check is the parsed PID correct. */
         if(!pid || errno == ERANGE)
         {
             fprintf(stderr, "Invalid pid!\n");
@@ -78,6 +88,7 @@ int exec_inner(const char *name, const char *argv[])
             return EXEC_FAILED;
         }
 
+        /* Try to find job by pid. */
         job* jobs = find_job_pid(-pid);
         if(!jobs)
         {
@@ -86,6 +97,7 @@ int exec_inner(const char *name, const char *argv[])
             return EXEC_FAILED;
         }
 
+        /* Remove bg job from list. We no longer need this job. */
         remove_job(current_job->pgid);
         continue_job(jobs, 0);
 
@@ -94,6 +106,8 @@ int exec_inner(const char *name, const char *argv[])
     {
         int size = 0;
         int i = 1;
+
+        /* Check args. */
         while(argv[i++])
             size++;
 
@@ -106,6 +120,7 @@ int exec_inner(const char *name, const char *argv[])
 
         pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
 
+        /* Check is the parsed PID correct. */
         if(!pid || errno == ERANGE)
         {
             fprintf(stderr, "Invalid pid!\n");
@@ -113,6 +128,7 @@ int exec_inner(const char *name, const char *argv[])
             return EXEC_FAILED;
         }
 
+        /* Try to find job by pid. */
         job* jobs = find_job_pid(-pid);
         if(!jobs)
         {
@@ -121,6 +137,7 @@ int exec_inner(const char *name, const char *argv[])
             return EXEC_FAILED;
         }
 
+        /* Remove fg job from list. We no longer need this job. */
         remove_job(current_job->pgid);
         continue_job(jobs, 1);
 

@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include "shell.h"
 
-int prompt_line( char *line, int sizeline)
+/* Read line from input. Return count of read symbols. */
+int prompt_line(char *line, int sizeline)
 {
     size_t n = 0;
 
@@ -12,9 +13,8 @@ int prompt_line( char *line, int sizeline)
     {
         n += read(0, (line + n), sizeline - n);
         *(line + n) = '\0';
-         /*
-          *  check to see if command line extends onto
-          *  next line.  If so, append next line to command line
+         /* Check to see if command line extends on to next line.
+            If so, append next line to command line.
           */
 
         if (*(line + n - 2) == '\\' && *(line + n - 1) == '\n')
@@ -22,14 +22,16 @@ int prompt_line( char *line, int sizeline)
             *(line + n) = ' ';
             *(line + n - 1) = ' ';
             *(line + n - 2) = ' ';
-            continue;   /*  read next line  */
+            continue;   /* Read next line. */
         }
-        return (n);      /* all done */
+        return (n);      /* All done. */
     }
 }
 
-static char *blank_skip(register char *);
+/* Skip all spaces from begin of string s. */
+static char *blank_skip(register char *s);
 
+/* Parse input line. Return -1, if was syntax error. Or 1, if parsing was successful. */
 int parse_line(char *line, char *varline)
 {
     int nargs, ncmds;
@@ -53,7 +55,7 @@ int parse_line(char *line, char *varline)
         if (!*s)
             break;
 
-        /*  handle <, >, |, &, $ and ;  */
+        /* Handle <, >, |, &, $ and ; */
         switch (*s)
         {
             case '&':
@@ -112,8 +114,10 @@ int parse_line(char *line, char *varline)
                 nargs = 0;
                 break;
             case '$':
+                /* Replace $($) to value of variable. */
                 if (*(s + 1) == '$')
                 {
+                    /* If on this position $$. We must get PID of shell process. */
                     *s++ = '\0';
                     *s++ = '\0';
                     s = strpbrk(s, delim);
@@ -125,12 +129,15 @@ int parse_line(char *line, char *varline)
 
                     char str[10];
                     sprintf(str, "%d", getpid());
+
                     int index = 0;
                     while(!isspace(str[index]) && str[index] != '\0')
                         *varline++ = str[index++];
+
                     *varline++ = '\0';
                 } else
                 {
+                    /* If on this position $<VAR_NAME>. We must get value of VAR_NAME. */
                     *s++ = '\0';
 
                     envword = s;
@@ -145,6 +152,7 @@ int parse_line(char *line, char *varline)
                 }
                 break;
             case '%':
+                /* Symbol of job list index. */
                 *s++ = '\0';
                 envword = s;
                 while(!isspace(*s) && *s != '\0') ++s;
@@ -157,19 +165,33 @@ int parse_line(char *line, char *varline)
                 cmds[ncmds].cmdargs[nargs] = (char *) NULL;
 
                 char str[10];
-                int a = atoi(envword);
+                int a = (pid_t)strtol(envword, NULL, 10);
+
+                /* Check is the parsed PID correct. */
+                if(!a || errno == ERANGE)
+                {
+                    fprintf(stderr, "%%%s: Invalid job index!\n", envword);
+                    fflush(stderr);
+                    return EXEC_FAILED;
+                }
+
+                /* Try to find job by parsed index. */
                 if (!find_job_jid(a))
                 {
                     fprintf(stderr, "%%%s: no such job!\n", envword);
                     return (-1);
                 }
+
                 sprintf(str, "%d", -find_job_jid(a)->pgid);
+
                 int index = 0;
                 while(!isspace(str[index]) && str[index] != '\0')
                     *varline++ = str[index++];
+
                 *varline++ = '\0';
                 break;
             default:
+                /* If we get a word, not a symbol. */
                 if (nargs == 0)
                     rval = ncmds + 1;
                 cmds[ncmds].cmdargs[nargs++] = s;
@@ -180,18 +202,16 @@ int parse_line(char *line, char *varline)
                 break;
         }
     }
-    if (cmds[ncmds - 1].cmdflag & OUTPIP)
+    if ((cmds[ncmds - 1].cmdflag & OUTPIP) && nargs == 0)
     {
-        if (nargs == 0)
-        {
-            fprintf(stderr, "syntax error\n");
-            return (-1);
-        }
+        fprintf(stderr, "syntax error\n");
+        return (-1);
     }
 
     return (rval);
 }
 
+/* Skip all spaces from begin of string s. */
 static char *blank_skip(register char *s)
 {
     while (isspace(*s) && *s) ++s;

@@ -5,7 +5,10 @@
 #include <ctype.h>
 #include <string.h>
 
-int parse_line(char *, char *);
-int prompt_line(char *, int);
+/* Parse input line. Return -1, if was syntax error. Or 1, if parsing was successful. */
+int parse_line(char *line, char *varline);
+
+/* Read line from input. Return count of read symbols. */
+int prompt_line(char *line, int sizeline);
 
 #endif

@@ -7,19 +7,17 @@
 #include "signals.h"
 #include "promptline.h"
 
-/*  cmdflag's  */
-#define OUTPIP  01
-#define INPIP   02
 #define HOST_NAME_MAX 64
 
-command cmds[MAXCMDS];
-char *infile, *outfile, *appfile;
-job* current_job;
-char bkgrnd;
-int invite_mode;
+command cmds[MAXCMDS]; /* current set of parsed commands from line */
+char *infile, *outfile, *appfile; /* files for redirect streams of new job */
+job* current_job; /* current foreground working job */
+char bkgrnd;      /* flag for the process in the background */
+int invite_mode;  /* flag for waiting for input from the terminal.
+                     Used in SIGCHLD handler and do_job_notification() */
 
-pid_t shell_pgid;
-struct termios shell_tmodes;
-int shell_terminal;
+pid_t shell_pgid; /* shell process group ID */
+struct termios shell_tmodes; /* saved attributes of shell terminal */
+int shell_terminal;          /* descriptor of shell STDIN */
 
 #endif
