@@ -2,6 +2,7 @@
 #include "jobs.h"
 #include "shell.h"
 
+/* Head of job list. */
 job *head_job_list = NULL;
 
 /* Find the job with the indicated pgid. */

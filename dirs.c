@@ -1,8 +1,8 @@
 #include "dirs.h"
 
-static char buffer[PATH_MAX]; /* Buffer for operations in dirs.c */
-static char *tmp_dir = NULL;  /* Saved string of current directory */
-static char *home_dir = NULL; /* Initial home directory for shell */
+static char buffer[PATH_MAX]; /* buffer for operations in dirs.c */
+static char *tmp_dir = NULL;  /* saved string of current directory */
+static char *home_dir = NULL; /* initial home directory for shell */
 
 /* Concat strings. */
 static char *concat_str(const char *s0, const char *s1);
