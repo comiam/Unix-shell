@@ -64,6 +64,9 @@ int job_list_is_inner();
 /* Return index of job in list. */
 int get_job_index(pid_t pgid);
 
+/* Return last index of job in list. */
+int get_last_job_index();
+
 /* Add job to list. Return success, if added. */
 int add_job(job* jobs);
 

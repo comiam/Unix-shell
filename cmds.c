@@ -71,30 +71,40 @@ int exec_inner(const char *name, const char *argv[])
         while(argv[i++])
             size++;
 
+        if(get_last_job_index() == 0)
+        {
+            fprintf(stderr, "Not enough jobs to run in bg!");
+            fflush(stderr);
+            return EXEC_FAILED;
+        }
+
+        /* get last job at begin */
+        job* jobs = find_job_jid(get_last_job_index() - 1);
+
         if(size > 1)
         {
             fprintf(stderr, "%s: Too many args!\n", argv[1]);
             fflush(stderr);
             return EXEC_FAILED;
-        }
-
-        pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
-
-        /* Check is the parsed PID correct. */
-        if(!pid || errno == ERANGE)
+        }else if(size == 1)
         {
-            fprintf(stderr, "Invalid pid!\n");
-            fflush(stderr);
-            return EXEC_FAILED;
-        }
+            pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
 
-        /* Try to find job by pid. */
-        job* jobs = find_job_pid(-pid);
-        if(!jobs)
-        {
-            fprintf(stderr, "%d - no such job!\n", pid);
-            fflush(stderr);
-            return EXEC_FAILED;
+            /* Check is the parsed PID correct. */
+            if(!pid || errno == ERANGE)
+            {
+                fprintf(stderr, "Invalid pid!\n");
+                fflush(stderr);
+                return EXEC_FAILED;
+            }
+            jobs = find_job_pid(-pid);
+            /* Try to find job by pid. */
+            if(!jobs)
+            {
+                fprintf(stderr, "%d - no such job!\n", pid);
+                fflush(stderr);
+                return EXEC_FAILED;
+            }
         }
 
         /* Remove bg job from list. We no longer need this job. */
@@ -111,32 +121,44 @@ int exec_inner(const char *name, const char *argv[])
         while(argv[i++])
             size++;
 
+        if(get_last_job_index() == 0)
+        {
+            fprintf(stderr, "Not enough jobs to move to fg!");
+            fflush(stderr);
+            return EXEC_FAILED;
+        }
+
+        /* get last job at begin */
+        job* jobs = find_job_jid(get_last_job_index() - 1);
+
         if(size > 1)
         {
             fprintf(stderr, "%s: Too many args!\n", argv[1]);
             fflush(stderr);
             return EXEC_FAILED;
-        }
-
-        pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
-
-        /* Check is the parsed PID correct. */
-        if(!pid || errno == ERANGE)
+        }else if(size == 1)
         {
-            fprintf(stderr, "Invalid pid!\n");
-            fflush(stderr);
-            return EXEC_FAILED;
+            pid_t pid = (pid_t)strtol(argv[1], NULL, 10);
+
+            /* Check is the parsed PID correct. */
+            if(!pid || errno == ERANGE)
+            {
+                fprintf(stderr, "Invalid pid!\n");
+                fflush(stderr);
+                return EXEC_FAILED;
+            }
+            jobs = find_job_pid(-pid);
+            /* Try to find job by pid. */
+            if(!jobs)
+            {
+                fprintf(stderr, "%d - no such job!\n", pid);
+                fflush(stderr);
+                return EXEC_FAILED;
+            }
         }
 
-        /* Try to find job by pid. */
-        job* jobs = find_job_pid(-pid);
-        if(!jobs)
-        {
-            fprintf(stderr, "%d - no such job!\n", pid);
-            fflush(stderr);
-            return EXEC_FAILED;
-        }
-
+        printf("%s\n", jobs->command);
+        fflush(stdout);
         /* Remove fg job from list. We no longer need this job. */
         remove_job(current_job->pgid);
         continue_job(jobs, 1);

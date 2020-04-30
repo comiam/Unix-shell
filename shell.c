@@ -167,6 +167,7 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
     set_signal_handler(SIGTTIN, SIG_DFL);
     set_signal_handler(SIGTTOU, SIG_DFL);
     set_signal_handler(SIGCHLD, SIG_DFL);
+    set_signal_handler(SIGPIPE, SIG_DFL);
 
     /* Set the standard input/output channels of the new process. */
     if (infile_local != STDIN_FILENO)

@@ -168,7 +168,7 @@ int parse_line(char *line, char *varline)
                 int a = (pid_t)strtol(envword, NULL, 10);
 
                 /* Check is the parsed PID correct. */
-                if(!a || errno == ERANGE)
+                if(errno == ERANGE)
                 {
                     fprintf(stderr, "%%%s: Invalid job index!\n", envword);
                     fflush(stderr);
@@ -197,6 +197,8 @@ int parse_line(char *line, char *varline)
                 cmds[ncmds].cmdargs[nargs++] = s;
                 cmds[ncmds].cmdargs[nargs] = (char *) NULL;
                 s = strpbrk(s, delim);
+                if(!s)
+                    return (-1);
                 if (isspace(*s))
                     *s++ = '\0';
                 break;

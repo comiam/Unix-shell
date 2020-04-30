@@ -16,6 +16,17 @@ job *find_job_pid(pid_t pgid)
     return NULL;
 }
 
+/* Return last index of job in list. */
+int get_last_job_index()
+{
+    int i = 0;
+    job *j;
+
+    for (j = get_job_list_head(); j; j = j->next, ++i);
+
+    return i - 1;
+}
+
 /* Get head of job list. */
 job *get_job_list_head()
 {
@@ -105,6 +116,7 @@ job* create_new_job(pid_t pgid, char* name)
     new_job->stderr_file = -1;
     new_job->stdout_file = -1;
     new_job->stdin_file = -1;
+    new_job->tmodes = shell_tmodes;
 
     return new_job;
 }
@@ -452,6 +464,7 @@ void put_job_in_foreground(job *j, int cont)
     /* Restore the shell's terminal modes. */
     tcgetattr(shell_terminal, &j->tmodes);
     tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+    tcflush(shell_terminal, TCIFLUSH);
 }
 
 /* Put a job in the background. If the cont argument is true, send
