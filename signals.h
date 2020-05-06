@@ -4,6 +4,6 @@
 #include <signal.h>
 
 /* Set signal handler for special signal. */
-void set_signal_handler(int sig, void *handler);
+void set_signal_handler(int sig, void (*handler)(int));
 
 #endif

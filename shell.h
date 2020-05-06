@@ -20,4 +20,7 @@ pid_t shell_pgid; /* shell process group ID */
 struct termios shell_tmodes; /* saved attributes of shell terminal */
 int shell_terminal;          /* descriptor of shell STDIN */
 
+/* Exit from shell. */
+void shell_exit(int stat);
+
 #endif

@@ -16,13 +16,15 @@
 #define DIR_EXIST         -259
 #define DIR_IS_FILE       -260
 
-/* Init home directory of shell. */
+/* Init home directory of shell.
+   begin must be non null. */
 void  init_home(char *begin);
 
 /* Set current working directory to path, with validation of dir. */
 int   set_directory(const char* dir);
 
-/* Get directory string for invite string. */
+/* Get directory string for invite string.
+   dirstr must be non null. */
 void  get_dir_prompt(char *dirstr);
 
 #endif

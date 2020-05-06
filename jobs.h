@@ -34,8 +34,11 @@ typedef struct job
     int stdin_file, stdout_file, stderr_file;  /* standart i/o channels */
 } job;
 
+/* Clear job list. */
+void clear_job_list(int kill_jobs);
+
 /* Create job from command array from parsed line. */
-void fill_job(job* jobs, int ncmds);
+void fill_job(job** jobs, int ncmds);
 
 /* Get head of job list. */
 job *get_job_list_head();
@@ -47,7 +50,7 @@ void set_job_list_head(job* job1);
 job *find_job_jid(int index);
 
 /* Find the job with the indicated pgid. */
-job *find_job_pid(pid_t pgid);
+job *find_job_pgid(pid_t pgid);
 
 /* Create job for foreground process. */
 job* create_new_job(pid_t pgid, char* name);
@@ -98,19 +101,22 @@ int mark_process_status(pid_t pid, int status);
 void mark_job_as_running(job *j);
 
 /* Continue the job to work. Terminal will switch to this job, if foreground = 1. */
-void continue_job(job *j, int foreground);
+void continue_job(job *jobs, int foreground);
 
 /* Put job in the foreground. If cont is nonzero,
    restore the saved terminal modes and send the process group a
-   SIGCONT signal to wake it up before we block. */
+   SIGCONT signal to wake it up before we block.
+   Job must be non null. */
 void put_job_in_foreground(job *j, int cont);
 
 /* Put a job in the background. If the cont argument is true, send
-   the process group a SIGCONT signal to wake it up. */
+   the process group a SIGCONT signal to wake it up.
+   Job must be non null. */
 void put_job_in_background(job *j, int cont);
 
 /* Check for processes that have status information available,
-   blocking until all processes in the given job have reported. */
-void wait_for_job(job *j);
+   blocking until all processes in the given job have reported.
+   Job must be non null. */
+void wait_for_job(job *jobs);
 
 #endif

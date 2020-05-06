@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
         {
             fprintf(stderr, "Can't create job!");
             fflush(stderr);
-            exit(EXIT_FAILURE);
+            shell_exit(EXIT_FAILURE);
         }
 
         /* Parse line to cmds[] array. */
@@ -47,7 +47,11 @@ int main(int argc, char *argv[])
             continue;
 
         /* Parse cmds[] data to current_job. */
-        fill_job(current_job, ncmds);
+        fill_job(&current_job, ncmds);
+
+        /* If parsing was failed. */
+        if(!current_job)
+            continue;
 
         /* Add new current_job to job list. */
         add_job(current_job);
@@ -64,8 +68,7 @@ int main(int argc, char *argv[])
 
             /* We no longer need this job. */
             remove_job(current_job->pgid);
-        }
-        else if(!bkgrnd && job_is_stopped(current_job))
+        }else if(!bkgrnd && job_is_stopped(current_job))
         {
             /* Notify if current_job is stopped. */
             current_job->notified = 1;
@@ -106,8 +109,8 @@ void init_shell(char *argv[])
     if (shell_is_interactive)
     {
         /* Loop until we are in the foreground. */
-        while(tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
-             kill(-shell_pgid, SIGTTIN);
+        //while(tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
+        //     kill(-shell_pgid, SIGTTIN);
 
         /* Ignore interactive and job-control signals. */
         set_signal_handler(SIGINT, SIG_IGN);
@@ -115,15 +118,16 @@ void init_shell(char *argv[])
         set_signal_handler(SIGTSTP, SIG_IGN);
         set_signal_handler(SIGTTIN, SIG_IGN);
         set_signal_handler(SIGTTOU, SIG_IGN);
+        set_signal_handler(SIGTERM, SIG_IGN);
         set_signal_handler(SIGCHLD, notify_child);
 
         /* Put ourselves in our own process group. */
         shell_pgid = getpid();
-        if (setpgid(shell_pgid, shell_pgid) < 0)
+        /*if (setpgid(shell_pgid, shell_pgid) < 0)
         {
             perror("Couldn't put the shell in its own process group");
-            exit(EXIT_FAILURE);
-        }
+            shell_exit(EXIT_FAILURE);
+        }*/
 
         /* Grab control of the terminal. */
         tcsetpgrp(shell_terminal, shell_pgid);
@@ -141,7 +145,7 @@ void init_shell(char *argv[])
     {
         fprintf(stderr, "Can't run shell: shell not in foreground!");
         fflush(stderr);
-        exit(EXIT_FAILURE);
+        shell_exit(EXIT_FAILURE);
     }
 }
 
@@ -168,6 +172,7 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
     set_signal_handler(SIGTTOU, SIG_DFL);
     set_signal_handler(SIGCHLD, SIG_DFL);
     set_signal_handler(SIGPIPE, SIG_DFL);
+    set_signal_handler(SIGTERM, SIG_DFL);
 
     /* Set the standard input/output channels of the new process. */
     if (infile_local != STDIN_FILENO)
@@ -186,16 +191,50 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
         close(errfile_local);
     }
 
+    /* Save only argv for child. So copy it. */
+    unsigned size = 0;
+    while (p->argv[size] != NULL)
+        size++;
+
+    char** argv = malloc((size + 1) * sizeof(char*));
+
+    if(!argv)
+    {
+        perror("child malloc");
+        clear_job_list(0);
+        exit(EXIT_FAILURE);
+    }
+
+    for(unsigned j = 0; j < size; j++)
+    {
+        argv[j] = strdup(p->argv[j]);
+        if(errno == ENOMEM)
+        {
+            perror("child malloc");
+            for (unsigned k = 0; k < j; ++k)
+                free(argv[k]);
+            free(argv);
+            clear_job_list(0);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    argv[size] = NULL;
+
+    /* Clear extra memory in child process. */
+    clear_job_list(0);
+
     /* Exec the new process. Make sure we exit. */
-    execvp(p->argv[0], p->argv);
-    perror("execvp");
+    execvp(argv[0], argv);
+    fprintf(stderr, "\nexecvp: %s: ", p->argv[0]);
+    perror("");
     exit(EXIT_FAILURE);
 }
 
 /* Launch and wait, if necessary, new job. */
 void launch_job(int foreground)
 {
-    process *p;
+    process *p, *p_next = NULL;
     pid_t pid;
     int mypipe[2], infile_local, outfile_local;
 
@@ -203,15 +242,18 @@ void launch_job(int foreground)
     int exec_only_inner = 1;
 
     infile_local = current_job->stdin_file;
-    for (p = current_job->first_process; p; p = p->next)
+
+    for (p = current_job->first_process;p;)
     {
+        p_next = p->next;
+
         /* Set up pipes, if necessary. */
         if (p->next)
         {
             if (pipe(mypipe) < 0)
             {
                 perror("pipe");
-                exit(EXIT_FAILURE);
+                shell_exit(EXIT_FAILURE);
             }
             outfile_local = mypipe[1];
         } else
@@ -224,14 +266,14 @@ void launch_job(int foreground)
 
             if ((inner_cmd_stat = exec_inner(p->argv[0], (const char **) p->argv)) == MAY_EXIT)
                 /* We get MAY_EXIT code, so we can exit from shell. */
-                exit(EXIT_SUCCESS);
+                shell_exit(EXIT_SUCCESS);
             else if (inner_cmd_stat != NOT_INNER_COMMAND)
             {
-                /* Update invite_string, bacause of we can launch cd command. */
+                /* Update invite_string, because of we can launch cd command. */
                 get_dir_prompt(dir);
                 sprintf(invite_string, "%s@%s:%s$ ", username, hostname, dir);
 
-                /* Set flags that this job completed. */
+                /* Set flags that this inner process completed. */
                 p->stopped = 0;
                 p->completed = 1;
             }
@@ -249,7 +291,7 @@ void launch_job(int foreground)
             {
                 /* The fork failed. */
                 perror("fork");
-                exit(EXIT_FAILURE);
+                shell_exit(EXIT_FAILURE);
             } else
             {
                 /* This is the parent process. */
@@ -266,6 +308,8 @@ void launch_job(int foreground)
         if (outfile_local != current_job->stdout_file)
             close(outfile_local);
         infile_local = mypipe[0];
+
+        p = p_next;
     }
 
     /* Inner commands don't run in forked processes, so we don't have to wait for them. */
@@ -276,4 +320,12 @@ void launch_job(int foreground)
         else
             put_job_in_background(current_job, 0);
     }
+}
+
+/* Exit from shell. */
+void shell_exit(int stat)
+{
+    clear_job_list(1);
+
+    exit(stat);
 }

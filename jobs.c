@@ -1,12 +1,41 @@
 #include <fcntl.h>
+#include <assert.h>
 #include "jobs.h"
 #include "shell.h"
 
 /* Head of job list. */
 job *head_job_list = NULL;
 
+/* Check job contains only inner commands. */
+int job_is_inner(job* jobs)
+{
+    if(!jobs)
+        return 0;
+
+    process *p;
+    for (p = jobs->first_process; p; p = p->next)
+        if(!command_is_inner(p->argv[0]))
+            return 0;
+
+    return 1;
+}
+
+/* Clear job list. */
+void clear_job_list(int kill_jobs)
+{
+    job *j;
+    for (int i = get_last_job_index(); i >= 0; --i)
+    {
+        j = find_job_jid(i);
+        if(kill_jobs && !job_is_inner(j))
+            kill(-j->pgid, SIGTERM);
+
+        remove_job(j->pgid);
+    }
+}
+
 /* Find the job with the indicated pgid. */
-job *find_job_pid(pid_t pgid)
+job *find_job_pgid(pid_t pgid)
 {
     job *j;
 
@@ -98,12 +127,28 @@ int get_job_index(pid_t pgid)
 job* create_new_job(pid_t pgid, char* name)
 {
     job* new_job = malloc(sizeof(job));
+
+    if(!new_job)
+    {
+        perror("malloc");
+        return NULL;
+    }
+
     memset(new_job, 0, sizeof(job));
+
     new_job->command = malloc(sizeof(char) * (strlen(name) + 1));
+
+    if(!new_job->command)
+    {
+        perror("malloc");
+        free(new_job);
+        return NULL;
+    }
+
     memcpy(new_job->command, name, strlen(name) + 1);
 
     /* Remove all \n in the end of name. */
-    for (size_t i = strlen(name); i >= 0; --i)
+    for (int i = (int)strlen(name); i >= 0; --i)
         if(new_job->command[i] == '\n')
         {
             new_job->command[i] = '\0';
@@ -156,7 +201,7 @@ int remove_job(pid_t pgid)
             if(jlast)
                 jlast->next = next;
             else
-                set_job_list_head(jlast);
+                set_job_list_head(next);
             return 1;
         }
         jlast = j;
@@ -168,6 +213,9 @@ int remove_job(pid_t pgid)
 /* Free memory of job. */
 void free_job(job* jobs)
 {
+    if(!jobs)
+        return;
+
     if(jobs->first_process)
     {
         process *p, *pnext;
@@ -183,7 +231,10 @@ void free_job(job* jobs)
             free(p);
         }
     }
-    free(jobs->command);
+
+    if(jobs->command)
+        free(jobs->command);
+
     free(jobs);
 }
 
@@ -238,17 +289,6 @@ int mark_process_status(pid_t pid, int status)
     }
 }
 
-/* Check job contains only inner commands. */
-int job_is_inner(job* jobs)
-{
-    process *p;
-    for (p = jobs->first_process; p; p = p->next)
-        if(!command_is_inner(p->argv[0]))
-            return 0;
-
-    return 1;
-}
-
 /* Check job list on containing non inner commands. */
 int job_list_is_inner()
 {
@@ -277,13 +317,13 @@ void update_job_status()
 }
 
 /* Format information about job status for the user to look at. */
-void format_job_info(job *j, const char *status)
+void format_job_info(job *jobs, const char *status)
 {
     if(status)
-        fprintf(stdout, "[%d] (%s): %s", get_job_index(j->pgid), status, j->command);
+        fprintf(stdout, "[%d] (%s): %s", get_job_index(jobs->pgid), status, jobs->command);
     else
         /* Used for, if this job put in background. */
-        fprintf(stdout, "[%d] : %s", get_job_index(j->pgid), j->command);
+        fprintf(stdout, "[%d] : %s", get_job_index(jobs->pgid), jobs->command);
     fflush(stdout);
 }
 
@@ -340,20 +380,19 @@ void do_job_notification(int show_all)
 }
 
 /* Create job from command array from parsed line. */
-void fill_job(job* jobs, int ncmds)
+void fill_job(job **jobs, int ncmds)
 {
+    if(!jobs || !*jobs)
+        return;
+
     register int i, u;
     process *first_process = NULL;
     process *p = NULL;
     process *p_last = NULL;
-    int size = 0;
+    unsigned long size = 0;
 
     for (i = 0; i < ncmds; i++)
     {
-        p_last = malloc(sizeof(process));
-        /* Set all fields of p_last to 0 or NULL. */
-        memset(p_last, 0, sizeof(process));
-
         for (u = 0; u < MAXARGS; ++u)
         {
             size++;
@@ -361,13 +400,49 @@ void fill_job(job* jobs, int ncmds)
                 break;
         }
 
+        /* Avoid empty commands. */
+        if(size == 1)
+            continue;
+
+        /* Create new process. */
+        p_last = malloc(sizeof(process));
+
+        if(!p_last)
+        {
+            perror("malloc");
+            free_job(*jobs);
+            (*jobs) = NULL;
+            return;
+        }
+
+        /* Set all fields of p_last to 0 or NULL. */
+        memset(p_last, 0, sizeof(process));
+
         /* Fill argv for p_last. */
         p_last->argv = malloc(size * sizeof(char *));
-        for (int j = 0; j < size; ++j)
+
+        if(!p_last->argv)
+        {
+            perror("malloc");
+            free_job(*jobs);
+            (*jobs) = NULL;
+            return;
+        }
+
+        for (unsigned long j = 0; j < size; ++j)
             if (cmds[i].cmdargs[j])
             {
                 /* copy arg string to p_last. */
                 p_last->argv[j] = malloc((strlen(cmds[i].cmdargs[j]) + 1) * sizeof(char));
+
+                if(!p_last->argv[j])
+                {
+                    perror("malloc");
+                    free_job(*jobs);
+                    (*jobs) = NULL;
+                    return;
+                }
+
                 memcpy(p_last->argv[j], cmds[i].cmdargs[j], strlen(cmds[i].cmdargs[j]) + 1);
             }
             else
@@ -389,11 +464,13 @@ void fill_job(job* jobs, int ncmds)
         {
             int input = open(infile, O_RDONLY);
             if (input != -1)
-                jobs->stdin_file = input;
+                (*jobs)->stdin_file = input;
             else
             {
                 perror("Couldn't open input file");
-                exit(EXIT_FAILURE);
+                free_job(*jobs);
+                (*jobs) = NULL;
+                return;
             }
         }
 
@@ -409,16 +486,18 @@ void fill_job(job* jobs, int ncmds)
                 output = open(appfile, O_WRONLY | O_APPEND | O_CREAT, (mode_t) 0644);
 
             if (output != -1)
-                jobs->stdout_file = output;
+                (*jobs)->stdout_file = output;
             else
             {
                 perror("Couldn't open output file");
-                exit(EXIT_FAILURE);
+                free_job(*jobs);
+                (*jobs) = NULL;
+                return;
             }
         }
     }
     /* Finally write created process chain to jobs. */
-    jobs->first_process = first_process;
+    (*jobs)->first_process = first_process;
 }
 
 /* Used only for SIGCHLD. */
@@ -430,57 +509,67 @@ void notify_child(int signum)
 }
 
 /* Mark a stopped job as being running again. */
-void mark_job_as_running(job *j)
+void mark_job_as_running(job *jobs)
 {
+    if(!jobs)
+        return;
     process *p;
 
-    for (p = j->first_process; p; p = p->next)
+    for (p = jobs->first_process; p; p = p->next)
         p->stopped = 0;
-    j->notified = 0;
+    jobs->notified = 0;
 }
 
 /* Put job in the foreground. If cont is nonzero,
    restore the saved terminal modes and send the process group a
-   SIGCONT signal to wake it up before we block. */
-void put_job_in_foreground(job *j, int cont)
+   SIGCONT signal to wake it up before we block.
+   Job must be non null. */
+void put_job_in_foreground(job *jobs, int cont)
 {
+    assert(jobs != NULL);
     /* Put the job into the foreground. */
-    tcsetpgrp(shell_terminal, j->pgid);
+    tcsetpgrp(shell_terminal, jobs->pgid);
 
     /* Send the job a continue signal, if necessary. */
     if (cont)
     {
-        tcsetattr(shell_terminal, TCSADRAIN, &j->tmodes);
-        if (kill(-j->pgid, SIGCONT) < 0)
+        tcsetattr(shell_terminal, TCSADRAIN, &jobs->tmodes);
+        if (kill(-jobs->pgid, SIGCONT) < 0)
             perror("kill(SIGCONT)");
     }
 
     /* Wait for it to report. */
-    wait_for_job(j);
+    wait_for_job(jobs);
 
     /* Put the shell back in the foreground. */
     tcsetpgrp(shell_terminal, shell_pgid);
 
     /* Restore the shell's terminal modes. */
-    tcgetattr(shell_terminal, &j->tmodes);
+    tcgetattr(shell_terminal, &jobs->tmodes);
     tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
     tcflush(shell_terminal, TCIFLUSH);
 }
 
 /* Put a job in the background. If the cont argument is true, send
-   the process group a SIGCONT signal to wake it up. */
-void put_job_in_background(job *j, int cont)
+   the process group a SIGCONT signal to wake it up.
+   Job must be non null. */
+void put_job_in_background(job *jobs, int cont)
 {
+    assert(jobs != NULL);
+
     /* Send the job a continue signal, if necessary. */
     if (cont)
-        if (kill(-j->pgid, SIGCONT) < 0)
+        if (kill(-jobs->pgid, SIGCONT) < 0)
             perror("kill (SIGCONT)");
 }
 
 /* Check for processes that have status information available,
-   blocking until all processes in the given job have reported. */
-void wait_for_job(job *j)
+   blocking until all processes in the given job have reported.
+   Job must be non null. */
+void wait_for_job(job *jobs)
 {
+    assert(jobs != NULL);
+
     int status;
     pid_t pid;
 
@@ -491,19 +580,21 @@ void wait_for_job(job *j)
     /* Wait all child, also we close zombie processes. */
     do
         pid = waitpid(WAIT_ANY, &status, WUNTRACED);
-    while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
+    while (!mark_process_status(pid, status) && !job_is_stopped(jobs) && !job_is_completed(jobs));
 }
 
 /* Continue the job to work. Terminal will switch to this job, if foreground = 1. */
-void continue_job(job *j, int foreground)
+void continue_job(job *jobs, int foreground)
 {
-    mark_job_as_running(j);
+    assert(jobs != NULL);
+
+    mark_job_as_running(jobs);
     if (foreground)
     {
-        put_job_in_foreground(j, 1);
+        put_job_in_foreground(jobs, 1);
         /* Switch current_process. */
-        current_job = j;
+        current_job = jobs;
     }
     else
-        put_job_in_background(j, 1);
+        put_job_in_background(jobs, 1);
 }

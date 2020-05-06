@@ -2,20 +2,20 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "shell.h"
 
 /* Read line from input. Return count of read symbols. */
-int prompt_line(char *line, int sizeline)
+ssize_t prompt_line(char *line, int sizeline)
 {
-    size_t n = 0;
+    ssize_t n = 0;
 
     while (1)
     {
-        n += read(0, (line + n), sizeline - n);
+        n += read(0, (line + n), (size_t) (sizeline - n));
         *(line + n) = '\0';
          /* Check to see if command line extends on to next line.
-            If so, append next line to command line.
-          */
+            If so, append next line to command line. */
 
         if (*(line + n - 2) == '\\' && *(line + n - 1) == '\n')
         {
@@ -31,9 +31,14 @@ int prompt_line(char *line, int sizeline)
 /* Skip all spaces from begin of string s. */
 static char *blank_skip(register char *s);
 
-/* Parse input line. Return -1, if was syntax error. Or 1, if parsing was successful. */
+/* Parse input line. Return -1, if was syntax error.
+   Or 1, if parsing was successful.
+   All args must be non null. */
 int parse_line(char *line, char *varline)
 {
+    assert(line != NULL);
+    assert(varline != NULL);
+
     int nargs, ncmds;
     register char *s;
     register char *envword;

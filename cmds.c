@@ -1,19 +1,23 @@
 #include <stdio.h>
+#include <assert.h>
 #include "cmds.h"
 #include "jobs.h"
 #include "shell.h"
 
-/* Check command name is inner realized command. */
+/* Exec inner command.
+   Notify, this commands not executed in forked process.
+   Fall, if name == NULL. */
 int command_is_inner(const char* name)
 {
+    assert(name != NULL);
     return !strcmp(name, "cd") || !strcmp(name, "exit") || !strcmp(name, "jobs") || !strcmp(name, "bg") || !strcmp(name, "fg");
 }
 
 /* Exec inner command. Notify, this commands not executed in forked process. */
 int exec_inner(const char *name, const char *argv[])
 {
-    if(!name || !argv)
-        return EXEC_FAILED;
+    assert(name != NULL);
+    assert(argv != NULL);
 
     if(!strcmp(name, "exit"))
         /* Return code for exit from shell. */
@@ -73,7 +77,7 @@ int exec_inner(const char *name, const char *argv[])
 
         if(get_last_job_index() == 0)
         {
-            fprintf(stderr, "Not enough jobs to run in bg!");
+            fprintf(stderr, "Not enough jobs to run in bg!\n");
             fflush(stderr);
             return EXEC_FAILED;
         }
@@ -97,7 +101,7 @@ int exec_inner(const char *name, const char *argv[])
                 fflush(stderr);
                 return EXEC_FAILED;
             }
-            jobs = find_job_pid(-pid);
+            jobs = find_job_pgid(-pid);
             /* Try to find job by pid. */
             if(!jobs)
             {
@@ -123,7 +127,7 @@ int exec_inner(const char *name, const char *argv[])
 
         if(get_last_job_index() == 0)
         {
-            fprintf(stderr, "Not enough jobs to move to fg!");
+            fprintf(stderr, "Not enough jobs to move to fg!\n");
             fflush(stderr);
             return EXEC_FAILED;
         }
@@ -147,7 +151,7 @@ int exec_inner(const char *name, const char *argv[])
                 fflush(stderr);
                 return EXEC_FAILED;
             }
-            jobs = find_job_pid(-pid);
+            jobs = find_job_pgid(-pid);
             /* Try to find job by pid. */
             if(!jobs)
             {

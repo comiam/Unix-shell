@@ -1,10 +1,13 @@
+#include <stdio.h>
+#include <assert.h>
 #include "dirs.h"
 
 static char buffer[PATH_MAX]; /* buffer for operations in dirs.c */
 static char *tmp_dir = NULL;  /* saved string of current directory */
 static char *home_dir = NULL; /* initial home directory for shell */
 
-/* Concat strings. */
+/* Concat strings.
+   Strings must be non null. */
 static char *concat_str(const char *s0, const char *s1);
 
 /* Check path is valid directory. */
@@ -16,7 +19,8 @@ static void replace_first(char *str, char *word1, char *word2);
 /* Clear tmp_dir. */
 static void clear_tmp();
 
-/* Final cd operation. */
+/* Final cd operation.
+   path must be non null. */
 static void cd(const char *path);
 
 /* Return to home directory. */
@@ -58,8 +62,16 @@ int set_directory(const char *dirstr)
             */
         getcwd(buffer, sizeof(buffer));
         char *tmp = concat_str(buffer, "/");
+
+        if(!tmp)
+            return CANT_OPEN_DIR;
+
         char *newdir = concat_str(tmp, dirstr);
+
         free(tmp);
+
+        if(!newdir)
+            return CANT_OPEN_DIR;
 
         dir = opendir(newdir);
         if (dir)
@@ -93,9 +105,12 @@ int set_directory(const char *dirstr)
     }
 }
 
-/* Get directory string for invite string. */
+/* Get directory string for invite string.
+   dirstr must be non null. */
 void get_dir_prompt(char *dirstr)
 {
+    assert(dirstr != NULL);
+
     /* Check if we already have a string made. */
     if(tmp_dir)
     {
@@ -107,6 +122,13 @@ void get_dir_prompt(char *dirstr)
 
     /* Format directory string */
     char *newdir = malloc(sizeof(char) * strlen(buffer));
+
+    if(!newdir)
+    {
+        perror("malloc");
+        return;
+    }
+
     strcpy(newdir, buffer);
     /* Replace our home directory to ~ */
     replace_first(newdir, home_dir, "~");
@@ -147,18 +169,24 @@ void get_dir_prompt(char *dirstr)
     tmp_dir = newdir;
 }
 
-/* Final cd operation. */
+/* Final cd operation.
+   path must be non null. */
 static void cd(const char *path)
 {
+    assert(path != NULL);
+
     /* We clear tmp_dir because of now we move to new directory. */
     if(tmp_dir)
         clear_tmp();
     chdir(path);
 }
 
-/* Init home directory of shell. */
+/* Init home directory of shell.
+   begin must be non null. */
 void init_home(char *begin)
 {
+    assert(begin != NULL);
+
     /* Set home to $HOME environment variable. */
     if ((home_dir = getenv("HOME")))
         cd(home_dir);
@@ -166,24 +194,48 @@ void init_home(char *begin)
     {
         /* Set working directory to directory, where shell was executed. */
         char *newdir = malloc(sizeof(char) * strlen(begin));
+
+        if(!newdir)
+        {
+            perror("malloc");
+            return;
+        }
+
         strcpy(newdir, begin);
-        for (size_t i = strlen(newdir) - 1; i >= 0; --i)
+        for (int i = (int)strlen(newdir) - 1; i >= 0; --i)
             if (newdir[i] == '/' || newdir[i] == '\\')
             {
                 newdir[i] = '\0';
                 break;
             }
         home_dir = malloc(sizeof(char) * strlen(newdir));
+
+        if(!home_dir)
+        {
+            perror("malloc");
+            free(newdir);
+            return;
+        }
+
         strcpy(home_dir, newdir);
 
         cd(newdir);
     }
 }
 
-/* Concat strings. */
+/* Concat strings.
+   Strings must be non null. */
 static char *concat_str(const char *s0, const char *s1)
 {
+    assert(s0 != NULL);
+    assert(s1 != NULL);
+
     char *str = (char *) malloc(sizeof(char) * (1 + strlen(s0) + strlen(s1)));
+    if(!home_dir)
+    {
+        perror("malloc");
+        return NULL;
+    }
     strcpy(str, s0);
     strcat(str, s1);
     return str;
@@ -192,6 +244,8 @@ static char *concat_str(const char *s0, const char *s1)
 /* Check path is valid directory. */
 static int is_dir(const char *path)
 {
+    assert(path != NULL);
+
     struct stat statbuf;
     if (stat(path, &statbuf) != 0)
         return 0;
@@ -206,7 +260,8 @@ static void go_to_parent()
     if(!strcmp(buffer, "/"))
         return;
 
-    for (size_t i = strlen(buffer) - 1; i >= 0; --i)
+
+    for (int i = (int)strlen(buffer) - 1; i >= 0; --i)
         if ((buffer[i] == '/' || buffer[i] == '\\'))
         {
             /* Move to root, in we haven't any parents. */
@@ -235,7 +290,11 @@ static void clear_tmp()
 /* Replace first word1 in str to word2. */
 static void replace_first(char *str, char *word1, char *word2)
 {
-    char tempString[1024 * 5];
+    assert(str != NULL);
+    assert(word1 != NULL);
+    assert(word2 != NULL);
+
+    char tmp[1024 * 5];
     char *search;
 
     search = strstr(str, word1);
@@ -246,12 +305,12 @@ static void replace_first(char *str, char *word1, char *word2)
         size_t word1_length = strlen(word1);
         size_t word2_length = strlen(word2);
 
-        if (sentence_length + word2_length - word1_length < 1000)
+        if (sentence_length + word2_length - word1_length < 1024 * 5)
         {
-            strncpy(tempString, str, head_length);
-            strcpy(tempString + head_length, word2);
-            strcpy(tempString + head_length + word2_length, search + word1_length);
-            strcpy(str, tempString);
+            strncpy(tmp, str, (size_t)head_length);
+            strcpy(tmp + head_length, word2);
+            strcpy(tmp + head_length + word2_length, search + word1_length);
+            strcpy(str, tmp);
         }
     }
 }
