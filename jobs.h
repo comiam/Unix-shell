@@ -8,7 +8,7 @@
 #include "string.h"
 #include "cmds.h"
 
-#ifndef __USE_MISC
+#ifndef WAIT_ANY
 #    define WAIT_ANY -1
 #endif
 
