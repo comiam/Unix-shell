@@ -82,7 +82,8 @@ int exec_inner(const char *name, const char *argv[])
             return EXEC_FAILED;
         }
 
-        /* get last job at begin */
+        /* Get last job at begin.
+           We choose pre last index, because of last is bg. */
         job* jobs = find_job_jid(get_last_job_index() - 1);
 
         if(size > 1)
@@ -107,6 +108,24 @@ int exec_inner(const char *name, const char *argv[])
             {
                 fprintf(stderr, "%d - no such job!\n", pid);
                 fflush(stderr);
+                return EXEC_FAILED;
+            }
+        }
+
+        if(job_is_completed(jobs) && size == 1)
+        {
+            fprintf(stderr, "This job is terminated!\n");
+            return EXEC_FAILED;
+        } else if(job_is_completed(jobs))
+        {
+            jobs = NULL;
+            for (int j = get_last_job_index() - 1; j >= 0; --j)
+                if(!job_is_completed(find_job_jid(j)))
+                    jobs = find_job_jid(j);
+
+            if(!jobs)
+            {
+                fprintf(stderr, "No such running jobs!\n");
                 return EXEC_FAILED;
             }
         }
@@ -132,7 +151,8 @@ int exec_inner(const char *name, const char *argv[])
             return EXEC_FAILED;
         }
 
-        /* get last job at begin */
+        /* Get last job at begin.
+           We choose pre last index, because of last is bg. */
         job* jobs = find_job_jid(get_last_job_index() - 1);
 
         if(size > 1)
@@ -157,6 +177,24 @@ int exec_inner(const char *name, const char *argv[])
             {
                 fprintf(stderr, "%d - no such job!\n", pid);
                 fflush(stderr);
+                return EXEC_FAILED;
+            }
+        }
+
+        if(job_is_completed(jobs) && size == 1)
+        {
+            fprintf(stderr, "This job is terminated!\n");
+            return EXEC_FAILED;
+        } else if(job_is_completed(jobs))
+        {
+            jobs = NULL;
+            for (int j = get_last_job_index() - 1; j >= 0; --j)
+                if(!job_is_completed(find_job_jid(j)))
+                    jobs = find_job_jid(j);
+
+            if(!jobs)
+            {
+                fprintf(stderr, "No such running jobs!\n");
                 return EXEC_FAILED;
             }
         }
