@@ -250,6 +250,7 @@ void launch_job(int foreground)
         /* Set up pipes, if necessary. */
         if (p->next)
         {
+            current_job->have_pipe = 1;
             if (pipe(mypipe) < 0)
             {
                 perror("pipe");

@@ -243,7 +243,7 @@ void free_job(job* jobs)
 int mark_process_status(pid_t pid, int status)
 {
     job *j;
-    process *p;
+    process *p, *p2;
 
     if(pid > 0)
     {
@@ -255,7 +255,15 @@ int mark_process_status(pid_t pid, int status)
                 {
                     p->status = status;
                     if (WIFSTOPPED(status))
+                    {
                         p->stopped = 1;
+                        if(j->have_pipe)
+                        {
+                            kill(-j->pgid, SIGSTOP);
+                            for(p2 = j->first_process; p2; p2 = p2->next)
+                                p2->stopped = 1;
+                        }
+                    }
                     else
                     {
                         p->completed = 1;
@@ -269,6 +277,12 @@ int mark_process_status(pid_t pid, int status)
                             fprintf(stdout, "[%d] - %s: Terminated by signal %d.\n",
                                     get_job_index(j->pgid), p->argv[0], WTERMSIG (p->status));
                             fflush(stdout);
+                        }
+                        if(j->have_pipe)
+                        {
+                            kill(-j->pgid, SIGKILL);
+                            for(p2 = j->first_process; p2; p2 = p2->next)
+                                p2->completed = 1;
                         }
                     }
                     return 0;

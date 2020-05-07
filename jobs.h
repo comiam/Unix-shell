@@ -26,6 +26,7 @@ typedef struct process
 typedef struct job
 {
     struct job *next;
+    char have_pipe;             /* flag if job used pipeline */
     char *command;              /* command line, used for messages */
     process *first_process;     /* list of processes in this job */
     pid_t pgid;                 /* process group ID */
