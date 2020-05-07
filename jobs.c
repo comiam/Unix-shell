@@ -323,7 +323,7 @@ void format_job_info(job *jobs, const char *status)
         fprintf(stdout, "[%d] (%s): %s", get_job_index(jobs->pgid), status, jobs->command);
     else
         /* Used for, if this job put in background. */
-        fprintf(stdout, "[%d] : %s", get_job_index(jobs->pgid), jobs->command);
+        fprintf(stdout, "[%d] : pgid -%u" , get_job_index(jobs->pgid), jobs->pgid);
     fflush(stdout);
 }
 
