@@ -391,8 +391,9 @@ void fill_job(job **jobs, int ncmds)
     process *p_last = NULL;
     unsigned long size = 0;
 
-    for (i = 0; i < ncmds; i++)
+    for (i = 0; i < ncmds + 1; i++)
     {
+        size = 0;
         for (u = 0; u < MAXARGS; ++u)
         {
             size++;

@@ -17,7 +17,7 @@ ssize_t prompt_line(char *line, int sizeline)
          /* Check to see if command line extends on to next line.
             If so, append next line to command line. */
 
-        if (*(line + n - 2) == '\\' && *(line + n - 1) == '\n' )
+        if (*(line + n - 2) == '\\' && *(line + n - 1) == '\n')
         {
             *(line + n) = ' ';
             *(line + n - 1) = '\n';
@@ -44,6 +44,7 @@ int parse_line(char *line, char *varline)
     register char *envword;
     char aflg = 0;
     int rval;
+    int new_arg;
     register int i;
     static char delim[] = " \t|&<>;$\n\"\\";
 
@@ -51,8 +52,13 @@ int parse_line(char *line, char *varline)
     s = line;
     infile = outfile = appfile = (char *) NULL;
     cmds[0].cmdargs[0] = (char *) NULL;
+
     for (i = 0; i < MAXCMDS; i++)
+    {
         cmds[i].cmdflag = 0;
+        for (int j = 0; j < MAXARGS; ++j)
+            cmds[i].cmdargs[j] = NULL;
+    }
 
     while (*s)
     {
@@ -217,6 +223,39 @@ int parse_line(char *line, char *varline)
                 cmds[ncmds].cmdargs[nargs] = (char *) NULL;
 
                 s = strpbrk(entry, delim);
+                break;
+            case '\\':
+                new_arg = s > line && (*(s - 1) == ' ' || *(s - 1) == '\0');
+                if (new_arg)
+                    *(s - 1) = '\0';
+
+                if(s + 1 <= line + READ_LINE_SIZE)
+                {
+                    strncpy(s, s + 1, strlen(s + 1));
+                    if(new_arg)
+                    {
+                        cmds[ncmds].cmdargs[nargs++] = s;
+                        cmds[ncmds].cmdargs[nargs] = (char *) NULL;
+                    }
+
+                    if(*(s + 1) == ' ')
+                    {
+                        s++;
+                        *s++ = '\0';
+                        s = strpbrk(s, delim);
+                    }
+                    else
+                        s = strpbrk(++s, delim);
+                    if(!s)
+                        return (-1);
+
+                    if (isspace(*s))
+                        *s++ = '\0';
+                } else
+                {
+                    fprintf(stderr, "Syntax error!\n");
+                    return (-1);
+                }
                 break;
             default:
                 /* If we get a word, not a symbol. */

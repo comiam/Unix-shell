@@ -17,8 +17,8 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
 char hostname[HOST_NAME_MAX];  /* name of host */
 char username[LOGIN_NAME_MAX]; /* user name */
 char invite_string[HOST_NAME_MAX + LOGIN_NAME_MAX + MAX_DIRECTORY_SIZE + 5]; /* invite string */
-char line[1024]; /* line reading buffer */
-char varline[4096]; /* buffer line for values of variables from parsing input string */
+char line[READ_LINE_SIZE]; /* line reading buffer */
+char varline[READ_LINE_SIZE * 4]; /* buffer line for values of variables from parsing input string */
 char dir[MAX_DIRECTORY_SIZE]; /* directory string buffer for printing to invite_string */
 
 int main(int argc, char *argv[])

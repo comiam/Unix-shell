@@ -8,6 +8,7 @@
 #include "promptline.h"
 
 #define HOST_NAME_MAX 64
+#define READ_LINE_SIZE 1024
 
 command cmds[MAXCMDS]; /* current set of parsed commands from line */
 char *infile, *outfile, *appfile; /* files for redirect streams of new job */
