@@ -17,10 +17,10 @@ ssize_t prompt_line(char *line, int sizeline)
          /* Check to see if command line extends on to next line.
             If so, append next line to command line. */
 
-        if (*(line + n - 2) == '\\' && *(line + n - 1) == '\n')
+        if (*(line + n - 2) == '\\' && *(line + n - 1) == '\n' )
         {
             *(line + n) = ' ';
-            *(line + n - 1) = ' ';
+            *(line + n - 1) = '\n';
             *(line + n - 2) = ' ';
             continue;   /* Read next line. */
         }
@@ -45,7 +45,7 @@ int parse_line(char *line, char *varline)
     char aflg = 0;
     int rval;
     register int i;
-    static char delim[] = " \t|&<>;$\n";
+    static char delim[] = " \t|&<>;$\n\"\\";
 
     bkgrnd = nargs = ncmds = rval = 0;
     s = line;
@@ -60,7 +60,7 @@ int parse_line(char *line, char *varline)
         if (!*s)
             break;
 
-        /* Handle <, >, |, &, $ and ; */
+        /* Handle <, >, |, &, $, " and ; */
         switch (*s)
         {
             case '&':
@@ -77,7 +77,7 @@ int parse_line(char *line, char *varline)
                 s = blank_skip(s);
                 if (!*s)
                 {
-                    fprintf(stderr, "syntax error\n");
+                    fprintf(stderr, "Syntax error!\n");
                     return (-1);
                 }
 
@@ -94,7 +94,7 @@ int parse_line(char *line, char *varline)
                 s = blank_skip(s);
                 if (!*s)
                 {
-                    fprintf(stderr, "syntax error\n");
+                    fprintf(stderr, "Syntax error!\n");
                     return (-1);
                 }
                 infile = s;
@@ -105,7 +105,7 @@ int parse_line(char *line, char *varline)
             case '|':
                 if (nargs == 0)
                 {
-                    fprintf(stderr, "syntax error\n");
+                    fprintf(stderr, "Syntax error!\n");
                     return (-1);
                 }
                 cmds[ncmds++].cmdflag |= OUTPIP;
@@ -195,15 +195,41 @@ int parse_line(char *line, char *varline)
 
                 *varline++ = '\0';
                 break;
+            case '\"':
+                *s++ = '\0';
+
+                /* Try to find second bracket. */
+                char second_bracket[1] = "\"";
+                char *entry = s;
+
+                while((entry = strpbrk(entry, second_bracket)) && entry > line && *(entry - 1) == '\\')
+                    if(entry > line && *(entry - 1) == '\\')
+                        strncpy(entry - 1, entry, strlen(entry));
+
+                if (!entry)
+                {
+                    fprintf(stderr, "Syntax error!\n");
+                    return (-1);
+                } else
+                    *entry++ = '\0';
+
+                cmds[ncmds].cmdargs[nargs++] = s;
+                cmds[ncmds].cmdargs[nargs] = (char *) NULL;
+
+                s = strpbrk(entry, delim);
+                break;
             default:
                 /* If we get a word, not a symbol. */
                 if (nargs == 0)
                     rval = ncmds + 1;
                 cmds[ncmds].cmdargs[nargs++] = s;
                 cmds[ncmds].cmdargs[nargs] = (char *) NULL;
+
                 s = strpbrk(s, delim);
+
                 if(!s)
                     return (-1);
+
                 if (isspace(*s))
                     *s++ = '\0';
                 break;
@@ -211,7 +237,7 @@ int parse_line(char *line, char *varline)
     }
     if ((cmds[ncmds - 1].cmdflag & OUTPIP) && nargs == 0)
     {
-        fprintf(stderr, "syntax error\n");
+        fprintf(stderr, "Syntax error!\n");
         return (-1);
     }
 

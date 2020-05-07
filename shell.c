@@ -226,7 +226,7 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
 
     /* Exec the new process. Make sure we exit. */
     execvp(argv[0], argv);
-    fprintf(stderr, "\nexecvp: %s: ", p->argv[0]);
+    fprintf(stderr, "\nexecvp: %s: ", argv[0]);
     perror("");
     exit(EXIT_FAILURE);
 }
