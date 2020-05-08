@@ -207,7 +207,7 @@ int parse_line(char *line, char *varline)
                 *s++ = '\0';
 
                 /* Try to find second bracket. */
-                char second_bracket[1] = "\"";
+                char second_bracket[2] = "\"";
                 char *entry = s;
 
                 while((entry = strpbrk(entry, second_bracket)) && entry > line && *(entry - 1) == '\\')
