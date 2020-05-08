@@ -7,8 +7,11 @@
 #include "signals.h"
 #include "promptline.h"
 
-#define HOST_NAME_MAX 64
 #define READ_LINE_SIZE 1024
+
+#ifndef HOST_NAME_MAX
+#    define HOST_NAME_MAX 64
+#endif
 
 #ifndef LOGIN_NAME_MAX
 #    define LOGIN_NAME_MAX 256

@@ -22,6 +22,8 @@ ssize_t prompt_line(char *line, int sizeline)
             *(line + n) = ' ';
             *(line + n - 1) = '\n';
             *(line + n - 2) = ' ';
+            printf("> ");
+            fflush(stdout);
             continue;   /* Read next line. */
         }
         return (n);      /* All done. */

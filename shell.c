@@ -144,8 +144,18 @@ void init_shell(char *argv[])
         init_home(argv[0]);
 
         /* Init invite_string. */
-        gethostname(hostname, HOST_NAME_MAX);
-        getlogin_r(username, LOGIN_NAME_MAX);
+        if(gethostname(hostname, HOST_NAME_MAX))
+        {
+            perror("gethostname");
+            strncpy(hostname, "unknown", strlen("unknown"));
+            hostname[strlen("unknown")] = '\0';
+        }
+        if(getlogin_r(username, LOGIN_NAME_MAX))
+        {
+            perror("getlogin_r");
+            strncpy(username, "unknown", strlen("unknown"));
+            username[strlen("unknown")] = '\0';
+        }
         get_dir_prompt(dir);
         sprintf(invite_string, "%s@%s:%s$ ", username, hostname, dir);
     } else
