@@ -5,6 +5,7 @@
 static char buffer[PATH_MAX]; /* buffer for operations in dirs.c */
 static char *tmp_dir = NULL;  /* saved string of current directory */
 static char *home_dir = NULL; /* initial home directory for shell */
+static int found_home_var = 0; /* used for free home_dir at exit */
 
 /* Concat strings.
    Strings must be non null. */
@@ -120,8 +121,8 @@ void get_dir_prompt(char *dirstr)
     /* Make string again. Now we get current working directory. */
     getcwd(buffer, sizeof(buffer));
 
-    /* Format directory string */
-    char *newdir = malloc(sizeof(char) * strlen(buffer));
+    /* Format directory string. */
+    char *newdir = malloc(sizeof(char) * strlen(buffer) + 1);
 
     if(!newdir)
     {
@@ -130,7 +131,7 @@ void get_dir_prompt(char *dirstr)
     }
 
     strcpy(newdir, buffer);
-    /* Replace our home directory to ~ */
+    /* Replace our home directory to ~ . */
     replace_first(newdir, home_dir, "~");
 
     if (!strcmp(newdir, home_dir))
@@ -169,6 +170,17 @@ void get_dir_prompt(char *dirstr)
     tmp_dir = newdir;
 }
 
+/* Clear memory of string dir buffers at exit. */
+void free_dir()
+{
+    if(tmp_dir)
+        free(tmp_dir);
+
+    /* We can't free home_dir, if he takes a pointer from getenv("HOME"). */
+    if(!found_home_var)
+        free(home_dir);
+}
+
 /* Final cd operation.
    path must be non null. */
 static void cd(const char *path)
@@ -189,7 +201,10 @@ void init_home(char *begin)
 
     /* Set home to $HOME environment variable. */
     if ((home_dir = getenv("HOME")))
+    {
+        found_home_var = 1;
         cd(home_dir);
+    }
     else
     {
         /* Set working directory to directory, where shell was executed. */
@@ -220,6 +235,8 @@ void init_home(char *begin)
         strcpy(home_dir, newdir);
 
         cd(newdir);
+
+        free(newdir);
     }
 }
 
@@ -231,7 +248,7 @@ static char *concat_str(const char *s0, const char *s1)
     assert(s1 != NULL);
 
     char *str = (char *) malloc(sizeof(char) * (1 + strlen(s0) + strlen(s1)));
-    if(!home_dir)
+    if(!str)
     {
         perror("malloc");
         return NULL;

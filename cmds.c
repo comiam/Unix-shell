@@ -132,6 +132,7 @@ int exec_inner(const char *name, const char *argv[])
 
         /* Remove bg job from list. We no longer need this job. */
         remove_job(current_job->pgid);
+        current_job = NULL;
         continue_job(jobs, 0);
 
         return EXEC_SUCCESS;

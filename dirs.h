@@ -23,6 +23,9 @@ void  init_home(char *begin);
 /* Set current working directory to path, with validation of dir. */
 int   set_directory(const char* dir);
 
+/* Clear memory of string dir buffers at exit. */
+void free_dir();
+
 /* Get directory string for invite string.
    dirstr must be non null. */
 void  get_dir_prompt(char *dirstr);

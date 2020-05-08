@@ -126,6 +126,7 @@ int get_job_index(pid_t pgid)
 /* Create job for foreground process. */
 job* create_new_job(pid_t pgid, char* name)
 {
+
     job* new_job = malloc(sizeof(job));
 
     if(!new_job)
@@ -158,9 +159,9 @@ job* create_new_job(pid_t pgid, char* name)
 
     new_job->next = NULL;
     new_job->pgid = pgid;
-    new_job->stderr_file = -1;
-    new_job->stdout_file = -1;
-    new_job->stdin_file = -1;
+    new_job->stderr_file = STDERR_FILENO;
+    new_job->stdout_file = STDOUT_FILENO;
+    new_job->stdin_file = STDIN_FILENO;
     new_job->tmodes = shell_tmodes;
 
     return new_job;
@@ -174,7 +175,9 @@ int add_job(job* jobs)
 
     job *j;
 
-    for (j = get_job_list_head(); j && j->next; j = j->next);
+    for (j = get_job_list_head(); j; j = j->next)
+        if(!j->next)
+            break;
 
     if(j)
         j->next = jobs;
@@ -226,7 +229,9 @@ void free_job(job* jobs)
                     break;
                 else
                     free(p->argv[i]);
+
             pnext = p->next;
+            p->next = NULL;
             free(p->argv);
             free(p);
         }
@@ -337,7 +342,7 @@ void format_job_info(job *jobs, const char *status)
         fprintf(stdout, "[%d] (%s): %s", get_job_index(jobs->pgid), status, jobs->command);
     else
         /* Used for, if this job put in background. */
-        fprintf(stdout, "[%d] : pgid -%u" , get_job_index(jobs->pgid), jobs->pgid);
+        fprintf(stdout, "[%d] : %u" , get_job_index(jobs->pgid), jobs->pgid);
     fflush(stdout);
 }
 
@@ -345,14 +350,15 @@ void format_job_info(job *jobs, const char *status)
    Delete terminated jobs from the active job list. */
 void do_job_notification(int show_all)
 {
-    job *j;
+    job *j, *jnext;
     int printed = 0;
 
     /* Update status information for child processes. */
     update_job_status();
 
-    for (j = get_job_list_head(); j; j = j->next)
+    for (j = get_job_list_head(); j; j = jnext)
     {
+        jnext = j->next;
         /* Don't show jobs. */
         if(!strcmp(j->command, "jobs"))
             continue;

@@ -34,6 +34,10 @@ int main(__attribute__((unused)) int argc, char *argv[])
         /* End of waiting for input from the terminal. */
         invite_mode = 0;
 
+        /* Parse line to cmds[] array. */
+        if ((ncmds = parse_line(line, varline)) <= 0)
+            continue;
+
         /* Create new job. */
         if (!(current_job = create_new_job(0, line)))
         {
@@ -41,10 +45,6 @@ int main(__attribute__((unused)) int argc, char *argv[])
             fflush(stderr);
             shell_exit(EXIT_FAILURE);
         }
-
-        /* Parse line to cmds[] array. */
-        if ((ncmds = parse_line(line, varline)) <= 0)
-            continue;
 
         /* Parse cmds[] data to current_job. */
         fill_job(&current_job, ncmds);
@@ -60,30 +60,37 @@ int main(__attribute__((unused)) int argc, char *argv[])
            The bkgrnd value was obtained when parsing the input line. */
         launch_job(!bkgrnd);
 
-        /* Check state of job after waiting. */
-        if(!bkgrnd && job_is_completed(current_job))
+        /* Current job may be removed, if job contains inner commands. */
+        if(current_job)
         {
-            /* Notify all completed or stopped jobs after executing current_job. */
-            do_job_notification(0);
+            /* Check state of job after waiting. */
+            if(!bkgrnd && job_is_completed(current_job))
+            {
+                /* Notify all completed or stopped jobs after executing current_job. */
+                do_job_notification(0);
 
-            /* We no longer need this job. */
-            remove_job(current_job->pgid);
-        }else if(!bkgrnd && job_is_stopped(current_job))
-        {
-            /* Notify if current_job is stopped. */
-            current_job->notified = 1;
-            format_job_info(current_job, "stopped");
-            fprintf(stdout, "\n");
-            fflush(stdout);
-        }else if(bkgrnd)
-        {
-            /* Show index of new background task. */
-            current_job->notified = 1;
-            format_job_info(current_job, NULL);
-            fprintf(stdout, "\n");
-            fflush(stdout);
+                /* We no longer need this job. */
+                remove_job(current_job->pgid);
+            }else if(!bkgrnd && job_is_stopped(current_job))
+            {
+                /* Notify if current_job is stopped. */
+                current_job->notified = 1;
+                format_job_info(current_job, "stopped");
+                fprintf(stdout, "\n");
+                fflush(stdout);
+            }else if(bkgrnd)
+            {
+                /* Show index of new background task. */
+                current_job->notified = 1;
+                format_job_info(current_job, NULL);
+                fprintf(stdout, "\n");
+                fflush(stdout);
+            }
         }
     }
+    shell_exit(EXIT_SUCCESS);
+
+    return 0;
 }
 
 /* Prints invite_string to STDOUT.
@@ -92,7 +99,7 @@ int main(__attribute__((unused)) int argc, char *argv[])
 int get_invite()
 {
     /* Begin to wait input.
-       Now SIGCHLD may print notifications of stopped or terminated processes. */
+       At this moment SIGCHLD may print notifications of stopped or terminated processes. */
     invite_mode = 1;
     int flag = write(STDOUT_FILENO, invite_string, strlen(invite_string)) != -1;
 
@@ -223,10 +230,17 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
 
     /* Clear extra memory in child process. */
     clear_job_list(0);
+    free_dir();
 
     /* Exec the new process. Make sure we exit. */
     execvp(argv[0], argv);
     fprintf(stderr, "\nexecvp: %s: ", argv[0]);
+
+    for(unsigned j = 0; j < size; j++)
+        free(argv[j]);
+
+    free(argv);
+
     perror("");
     exit(EXIT_FAILURE);
 }
@@ -237,6 +251,7 @@ void launch_job(int foreground)
     process *p, *p_next = NULL;
     pid_t pid;
     int mypipe[2], infile_local, outfile_local;
+    int inner_cmd_stat;
 
     /* Flag for checking the job for inner commands only. */
     int exec_only_inner = 1;
@@ -248,7 +263,7 @@ void launch_job(int foreground)
         p_next = p->next;
 
         /* Set up pipes, if necessary. */
-        if (p->next)
+        if (p_next)
         {
             current_job->have_pipe = 1;
             if (pipe(mypipe) < 0)
@@ -263,7 +278,9 @@ void launch_job(int foreground)
         /* Check for the internal implementation of the command. */
         if(command_is_inner(p->argv[0]))
         {
-            int inner_cmd_stat;
+            /* Set flags that this inner process completed. */
+            p->stopped = 0;
+            p->completed = 1;
 
             if ((inner_cmd_stat = exec_inner(p->argv[0], (const char **) p->argv)) == MAY_EXIT)
                 /* We get MAY_EXIT code, so we can exit from shell. */
@@ -273,10 +290,6 @@ void launch_job(int foreground)
                 /* Update invite_string, because of we can launch cd command. */
                 get_dir_prompt(dir);
                 sprintf(invite_string, "%s@%s:%s$ ", username, hostname, dir);
-
-                /* Set flags that this inner process completed. */
-                p->stopped = 0;
-                p->completed = 1;
             }
         } else
         {
@@ -303,11 +316,16 @@ void launch_job(int foreground)
             }
         }
 
-        /* Clean up after pipes. */
-        if (infile_local != current_job->stdin_file)
-            close(infile_local);
-        if (outfile_local != current_job->stdout_file)
-            close(outfile_local);
+        /* Current job may be removed, if job contains inner commands. */
+        if(current_job)
+        {
+            /* Clean up after pipes. */
+            if (infile_local != current_job->stdin_file)
+                close(infile_local);
+            if (outfile_local != current_job->stdout_file)
+                close(outfile_local);
+        }
+
         infile_local = mypipe[0];
 
         p = p_next;
@@ -326,7 +344,10 @@ void launch_job(int foreground)
 /* Exit from shell. */
 void shell_exit(int stat)
 {
+    /* Free memory. */
     clear_job_list(1);
+    free_dir();
 
+    /* Rest in peace, my victim of g***ocoding. */
     exit(stat);
 }
