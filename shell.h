@@ -17,7 +17,7 @@
 command cmds[MAXCMDS]; /* current set of parsed commands from line */
 char *infile, *outfile, *appfile; /* files for redirect streams of new job */
 job* current_job; /* current foreground working job */
-char bkgrnd;      /* flag for the process in the background */
+int bkgrnd;      /* flag for the process in the background */
 int invite_mode;  /* flag for waiting for input from the terminal.
                      Used in SIGCHLD handler and do_job_notification() */
 

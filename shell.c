@@ -21,7 +21,7 @@ char line[READ_LINE_SIZE]; /* line reading buffer */
 char varline[READ_LINE_SIZE * 4]; /* buffer line for values of variables from parsing input string */
 char dir[MAX_DIRECTORY_SIZE]; /* directory string buffer for printing to invite_string */
 
-int main(int argc, char *argv[])
+int main(__attribute__((unused)) int argc, char *argv[])
 {
     /* INIT SHELL */
     init_shell(argv);

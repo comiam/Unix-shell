@@ -516,7 +516,7 @@ void fill_job(job **jobs, int ncmds)
 }
 
 /* Used only for SIGCHLD. */
-void notify_child(int signum)
+void notify_child(__attribute__((unused)) int signum)
 {
     if(invite_mode)
         /* Handler prints something, when shell waits input line. */
