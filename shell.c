@@ -116,8 +116,8 @@ void init_shell(char *argv[])
     if (shell_is_interactive)
     {
         /* Loop until we are in the foreground. */
-        //while(tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
-        //     kill(-shell_pgid, SIGTTIN);
+        while(tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
+             kill(-shell_pgid, SIGTTIN);
 
         /* Ignore interactive and job-control signals. */
         set_signal_handler(SIGINT, SIG_IGN);
@@ -130,11 +130,11 @@ void init_shell(char *argv[])
 
         /* Put ourselves in our own process group. */
         shell_pgid = getpid();
-        /*if (setpgid(shell_pgid, shell_pgid) < 0)
+        if (setpgid(shell_pgid, shell_pgid) < 0)
         {
             perror("Couldn't put the shell in its own process group");
             shell_exit(EXIT_FAILURE);
-        }*/
+        }
 
         /* Grab control of the terminal. */
         tcsetpgrp(shell_terminal, shell_pgid);
@@ -160,7 +160,7 @@ void init_shell(char *argv[])
         sprintf(invite_string, "%s@%s:%s$ ", username, hostname, dir);
     } else
     {
-        fprintf(stderr, "Can't run shell: shell not in foreground!");
+        fprintf(stderr, "Can't run shell: shell not in foreground!\n");
         fflush(stderr);
         shell_exit(EXIT_FAILURE);
     }
