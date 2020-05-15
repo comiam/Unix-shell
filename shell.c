@@ -194,17 +194,35 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
     /* Set the standard input/output channels of the new process. */
     if (infile_local != STDIN_FILENO)
     {
-        dup2(infile_local, STDIN_FILENO);
+        if(dup2(infile_local, STDIN_FILENO) == -1)
+        {
+            fprintf(stderr, "%s: dup", p->argv[0]);
+            perror(NULL);
+            clear_job_list(0);
+            exit(EXIT_FAILURE);
+        }
         close(infile_local);
     }
     if (outfile_local != STDOUT_FILENO)
     {
-        dup2(outfile_local, STDOUT_FILENO);
+        if(dup2(outfile_local, STDOUT_FILENO) == -1)
+        {
+            fprintf(stderr, "%s: dup", p->argv[0]);
+            perror(NULL);
+            clear_job_list(0);
+            exit(EXIT_FAILURE);
+        }
         close(outfile_local);
     }
     if (errfile_local != STDERR_FILENO)
     {
-        dup2(errfile_local, STDERR_FILENO);
+        if(dup2(errfile_local, STDERR_FILENO) == -1)
+        {
+            fprintf(stderr, "%s: dup", p->argv[0]);
+            perror(NULL);
+            clear_job_list(0);
+            exit(EXIT_FAILURE);
+        }
         close(errfile_local);
     }
 
@@ -251,7 +269,7 @@ void launch_process(process *p, pid_t pgid, int infile_local, int outfile_local,
 
     free(argv);
 
-    perror("");
+    perror(NULL);
     exit(EXIT_FAILURE);
 }
 
@@ -292,7 +310,7 @@ void launch_job(int foreground)
             p->stopped = 0;
             p->completed = 1;
 
-            if ((inner_cmd_stat = exec_inner(p->argv[0], (const char **) p->argv)) == MAY_EXIT)
+            if ((inner_cmd_stat = exec_inner(p->argv[0], (const char **) p->argv, infile_local, outfile_local)) == MAY_EXIT)
                 /* We get MAY_EXIT code, so we can exit from shell. */
                 shell_exit(EXIT_SUCCESS);
             else if (inner_cmd_stat != NOT_INNER_COMMAND)

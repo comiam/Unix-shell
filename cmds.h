@@ -21,7 +21,7 @@ typedef struct command_str
 } command;
 
 /* Check command name is inner realized command. */
-int exec_inner(const char *name, const char *argv[]);
+int exec_inner(const char *name, const char *argv[], int input_file, int output_file);
 
 /* Exec inner command.
    Notify, this commands not executed in forked process.

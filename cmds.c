@@ -14,7 +14,7 @@ int command_is_inner(const char* name)
 }
 
 /* Exec inner command. Notify, this commands not executed in forked process. */
-int exec_inner(const char *name, const char *argv[])
+int exec_inner(const char *name, const char *argv[], int infile_local, int outfile_local)
 {
     assert(name != NULL);
     assert(argv != NULL);
@@ -62,8 +62,55 @@ int exec_inner(const char *name, const char *argv[])
         }
     }else if(!strcmp(name, "jobs"))
     {
+        int stdin_fd;
+        int stdout_fd;
+
+        if((stdin_fd = dup(STDIN_FILENO)) == -1 || (stdout_fd = dup(STDOUT_FILENO)) == -1)
+        {
+            perror("jobs: dup");
+            shell_exit(EXEC_FAILED);
+        }
+
+        if (infile_local != STDIN_FILENO)
+        {
+            if(dup2(infile_local, STDIN_FILENO) == -1)
+            {
+                perror("jobs: dup");
+                shell_exit(EXEC_FAILED);
+            }
+            close(infile_local);
+        }
+        if (outfile_local != STDOUT_FILENO)
+        {
+            if(dup2(outfile_local, STDOUT_FILENO) == -1)
+            {
+                perror("jobs: dup");
+                shell_exit(EXEC_FAILED);
+            }
+            close(outfile_local);
+        }
+
         /* Show all executed jobs, but not terminated, jobs. */
         do_job_notification(1);
+
+        if (infile_local != STDIN_FILENO)
+        {
+            if(dup2(stdin_fd, STDIN_FILENO) == -1)
+            {
+                perror("jobs: dup");
+                shell_exit(EXEC_FAILED);
+            }
+            close(stdin_fd);
+        }
+        if (outfile_local != STDOUT_FILENO)
+        {
+            if(dup2(stdout_fd, STDOUT_FILENO) == -1)
+            {
+                perror("jobs: dup");
+                shell_exit(EXEC_FAILED);
+            }
+            close(stdout_fd);
+        }
 
         return EXEC_SUCCESS;
     }else if(!strcmp(name, "bg"))
